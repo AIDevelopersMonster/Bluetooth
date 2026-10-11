@@ -59,16 +59,61 @@ async def run(args: argparse.Namespace) -> int:
     print("Name, UUIDs and Bluetooth addresses do not prove original DX-BT18 hardware.")
 
     if args.address:
-        print(f"\nConnecting to BLE device {args.address!r} for GATT service enumeration...")
-        async with BleakClient(args.address, timeout=15.0) as client:
-            print("Connected:", client.is_connected)
-            for service in client.services:
-                print(f"SERVICE {service.uuid}  {service.description}")
-                for characteristic in service.characteristics:
-                    print("  CHAR", characteristic.uuid, "properties:", ",".join(characteristic.properties))
-                    for descriptor in characteristic.descriptors:
-                        print("    DESC", descriptor.uuid)
-        print("Disconnected. No GATT characteristic value was read or written.")
+        # Pass the BLEDevice obtained during *this scan*. Passing a string address
+        # makes BleakClient perform another implicit scan and can lead to
+        # confusing delays/failures, especially on Windows/WinRT.
+        target = next(
+            (device for device, _ in discovered.values()
+             if device.address.casefold() == args.address.casefold()),
+            None,
+        )
+        if target is None:
+            print(
+                f"GATT NOT ATTEMPTED: {args.address} was not observed in this scan. "
+                "Run the discovery again; TEST-02A advertising results remain valid.",
+                file=sys.stderr,
+            )
+            return 3
+
+        print(
+            f"\nConnecting to discovered BLEDevice {target.address!r} "
+            f"(GATT timeout: {args.connect_timeout:g}s)...",
+            flush=True,
+        )
+
+        async def connect_and_list() -> None:
+            async with BleakClient(target, timeout=args.connect_timeout) as client:
+                print("Connected:", client.is_connected, flush=True)
+                for service in client.services:
+                    print(f"SERVICE {service.uuid}  {service.description}", flush=True)
+                    for characteristic in service.characteristics:
+                        print(
+                            "  CHAR", characteristic.uuid,
+                            "properties:", ",".join(characteristic.properties),
+                            flush=True,
+                        )
+                        for descriptor in characteristic.descriptors:
+                            print("    DESC", descriptor.uuid, flush=True)
+            print("Disconnected. No GATT characteristic value was read or written.", flush=True)
+
+        try:
+            await asyncio.wait_for(
+                connect_and_list(), timeout=args.connect_timeout
+            )
+        except asyncio.TimeoutError:
+            print(
+                "GATT CONNECT TIMEOUT: connection/services enumeration not confirmed. "
+                "Previously observed BLE advertising remains PASS.",
+                file=sys.stderr,
+            )
+            return 3
+        except Exception as error:
+            print(
+                f"GATT CONNECTION ERROR: {type(error).__name__}: {error}. "
+                "BLE advertising remains PASS; no GATT PASS.",
+                file=sys.stderr,
+            )
+            return 3
     return 0
 
 
@@ -77,9 +122,13 @@ def main() -> int:
     parser.add_argument("--duration", type=float, default=10.0, help="scan duration, seconds")
     parser.add_argument("--name", help="optional name substring filter, e.g. BT18")
     parser.add_argument("--address", help="optional BLE identifier for GATT enumeration (may connect)")
+    parser.add_argument("--connect-timeout", type=float, default=25.0,
+                        help="maximum seconds for GATT connection and service enumeration; default: 25")
     args = parser.parse_args()
     if not 1.0 <= args.duration <= 120:
         parser.error("--duration must be 1..120 seconds")
+    if not 5.0 <= args.connect_timeout <= 120.0:
+        parser.error("--connect-timeout must be 5..120 seconds")
     try:
         return asyncio.run(run(args))
     except (OSError, RuntimeError, TimeoutError, ValueError) as error:
