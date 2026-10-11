@@ -49,6 +49,10 @@ def main() -> int:
     parser.add_argument("--port", help="serial port, e.g. COM4")
     parser.add_argument("--baud", type=int, default=9600, help="UART speed; default: 9600")
     parser.add_argument("--profile", choices=["dual", "le", "both"], default="dual")
+    parser.add_argument("--command", choices=tuple(dict.fromkeys(DUAL_READ + LE_READ)),
+                        help="send only one known read/test command (recommended for button tests)")
+    parser.add_argument("--start-delay", type=int, default=0,
+                        help="countdown seconds before sending (0..15); press button at 1")
     parser.add_argument("--ending", choices=tuple(ENDINGS), default="crlf")
     parser.add_argument("--timeout", type=float, default=0.65, help="wait after EACH command")
     parser.add_argument("--json", type=Path, help="optional local evidence output; may contain MAC")
@@ -64,6 +68,8 @@ def main() -> int:
 
     if not args.port:
         parser.error("--port COMx is required (or use --list-ports)")
+    if not 0 <= args.start_delay <= 15:
+        parser.error("--start-delay must be 0..15 seconds")
     if args.baud <= 0 or not 0.05 <= args.timeout <= 10:
         parser.error("invalid --baud or --timeout")
 
@@ -74,6 +80,9 @@ def main() -> int:
     else:
         commands = tuple(dict.fromkeys(DUAL_READ + LE_READ))
 
+    if args.command:
+        commands = (args.command,)
+
     record: dict = {
         "tool": "KON Bluetooth Lab BT18-01",
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
@@ -81,6 +90,8 @@ def main() -> int:
         "baud": args.baud,
         "profile": args.profile,
         "ending": args.ending,
+        "single_command": args.command,
+        "start_delay_s": args.start_delay,
         "results": [],
     }
 
@@ -89,6 +100,14 @@ def main() -> int:
     try:
         with serial.Serial(args.port, args.baud, timeout=0.05, write_timeout=1) as device:
             time.sleep(0.2)
+            if args.start_delay:
+                print("BUTTON TEST: Press the MODULE button when countdown shows 1.", flush=True)
+                print("Keep it pressed until the first response / '(no response)' appears.", flush=True)
+                print("Do not press during power-on based only on DX-BT18 documentation.", flush=True)
+                for seconds in range(args.start_delay, 0, -1):
+                    print(f"Sending in {seconds}...", flush=True)
+                    time.sleep(1.0)
+                print("SENDING NOW", flush=True)
             for command in commands:
                 device.reset_input_buffer()
                 device.write(command.encode("ascii") + ENDINGS[args.ending])
