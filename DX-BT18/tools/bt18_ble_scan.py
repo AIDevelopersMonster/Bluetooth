@@ -65,6 +65,8 @@ async def run(args: argparse.Namespace) -> int:
         name = adv.local_name or device.name or "(no name)"
         if args.name and args.name.casefold() not in name.casefold():
             continue
+        if args.connect_name and name.casefold() != args.connect_name.casefold():
+            continue
         matches += 1
         print(f"\nName: {name}\nBLE address/OS identifier: {device.address}\nRSSI: {adv.rssi} dBm")
         print("Advertised service UUIDs:", ", ".join(adv.service_uuids) or "(none)")
@@ -74,10 +76,36 @@ async def run(args: argparse.Namespace) -> int:
     print(f"\nDevices matching filter: {matches}")
     print("Name, UUIDs and Bluetooth addresses do not prove original DX-BT18 hardware.")
 
-    if args.address:
-        # Pass the BLEDevice obtained during *this scan*. Passing a string address
-        # makes BleakClient perform another implicit scan and can lead to
-        # confusing delays/failures, especially on Windows/WinRT.
+    target = None
+    if args.connect_name:
+        # Exact-name, unique-only selection avoids stale BLE identifiers.
+        # Names are not globally unique: never silently pick one of several.
+        exact = [
+            device for device, adv in discovered.values()
+            if (adv.local_name or device.name or "").casefold()
+            == args.connect_name.casefold()
+        ]
+        if len(exact) != 1:
+            print(
+                f"GATT NOT ATTEMPTED: exact name {args.connect_name!r} "
+                f"matched {len(exact)} devices; expected exactly one.",
+                file=sys.stderr,
+            )
+            if exact:
+                print(
+                    "Ambiguous addresses: " + ", ".join(d.address for d in exact)
+                    + ". Select the desired device with --address.",
+                    file=sys.stderr,
+                )
+            return 3
+        target = exact[0]
+        print(
+            f"Selected unique device by exact name {args.connect_name!r}: "
+            f"{target.address}",
+            flush=True,
+        )
+    elif args.address:
+        # Use the device from this same scan, never a second implicit scan.
         target = next(
             (device for device, _ in discovered.values()
              if device.address.casefold() == args.address.casefold()),
@@ -86,11 +114,13 @@ async def run(args: argparse.Namespace) -> int:
         if target is None:
             print(
                 f"GATT NOT ATTEMPTED: {args.address} was not observed in this scan. "
-                "Run the discovery again; TEST-02A advertising results remain valid.",
+                "Do not connect to a stale address; try --connect-name BT18-T "
+                "only if one such device is present.",
                 file=sys.stderr,
             )
             return 3
 
+    if target is not None:
         print(
             f"\nConnecting to discovered BLEDevice {target.address!r} "
             f"(GATT timeout: {args.connect_timeout:g}s)...",
@@ -137,7 +167,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--duration", type=float, default=10.0, help="scan duration, seconds")
     parser.add_argument("--name", help="optional name substring filter, e.g. BT18")
-    parser.add_argument("--address", help="optional BLE identifier for GATT enumeration (may connect)")
+    selector = parser.add_mutually_exclusive_group()
+    selector.add_argument("--address", help="BLE identifier from this scan for GATT enumeration")
+    selector.add_argument(
+        "--connect-name",
+        help="GATT-connect only if exactly one discovered device has this exact name",
+    )
     parser.add_argument("--connect-timeout", type=float, default=25.0,
                         help="maximum seconds for GATT connection and service enumeration; default: 25")
     args = parser.parse_args()
