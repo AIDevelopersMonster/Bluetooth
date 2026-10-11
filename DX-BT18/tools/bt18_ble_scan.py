@@ -11,8 +11,33 @@ import sys
 
 try:
     from bleak import BleakClient, BleakScanner
-except ImportError:
-    print("Missing bleak. Install: py -m pip install --user -r DX-BT18/tools/requirements.txt", file=sys.stderr)
+except Exception as error:
+    # ImportError may originate *inside* installed Bleak (e.g. WinRT),
+    # so reporting "Missing bleak" for every import failure is misleading.
+    import importlib.metadata
+    import traceback
+
+    print(f"BLE import failed: {type(error).__name__}: {error}", file=sys.stderr)
+    print(f"Python: {sys.version.split()[0]}  Executable: {sys.executable}", file=sys.stderr)
+    try:
+        version = importlib.metadata.version("bleak")
+        print(f"Installed bleak distribution: {version}", file=sys.stderr)
+    except importlib.metadata.PackageNotFoundError:
+        print("Installed bleak distribution: NOT FOUND", file=sys.stderr)
+
+    if isinstance(error, ModuleNotFoundError) and error.name == "bleak":
+        print(
+            "bleak is not installed for this Python. Install with: "
+            "py -m pip install --user -r DX-BT18/tools/requirements.txt",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            "The import failed despite the package being present or while loading "
+            "a dependency. Do NOT reinstall packages blindly; inspect the traceback.",
+            file=sys.stderr,
+        )
+    traceback.print_exc()
     sys.exit(2)
 
 
