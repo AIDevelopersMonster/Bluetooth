@@ -19,7 +19,7 @@ git pull --ff-only
 .\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile dual --json .\DX-BT18\results\test-01-dual.json
 ```
 
-If the original dual-mode AT switch pin is independently identified and accessible, P26/GPIO25 LOW is described for the original module; **do not** short unverified contacts on a clone. If no response and an LE-only variant is plausible:
+**Physical stand constraint: FOUR WIRES ONLY (VCC, GND, TX, RX).** No KEY/EN/ICE/VPP/P26 connections, jumper experiments or soldering. The original dual-mode DX-BT18 documentation mentions P26/GPIO25 LOW for AT mode, but our four-wire clone does not expose that control to the test. No AT response therefore means **AT ACCESS NOT ESTABLISHED**, not hardware FAIL. Try the documented LE read-only variant at most once if applicable:
 
 ```powershell
 .\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile le
