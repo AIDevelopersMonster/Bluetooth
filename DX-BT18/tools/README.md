@@ -57,3 +57,15 @@ Windows may report different BLE identifiers from the Classic Bluetooth address.
 - Hardware result files are created only after observing a real sample.
 
 See [DX-BT18](../README.md).
+
+## TEST-03: software echo (no jumper, existing COM4)
+
+Keep the existing USB-UART wiring unchanged (TX, RX, VCC, GND and any already established EN state). This test uses the physical COM port, not the PC BLE adapter. Close serial monitors, keep the phone connected via BLE and enable FFE1 notifications. Run:
+
+```powershell
+Set-Location C:\GitHub\Bluetooth
+git pull --ff-only
+py -3.14 .\DX-BT18\tools\bt18_uart_echo.py --port COM4 --baud 9600
+```
+
+On the phone write text `hello4` to FFE2. The PC should print `RX ... hello4` then `TX ... PC:hello4`, and the phone should receive `PC:hello4` on FFE1 if the module uses transparent data mode. The tool never sends AT commands or modifies the module. Stop with Ctrl+C. Software-only fake-serial test confirms output generation, **not real hardware PASS**. If the PC sees no UART bytes, this can reflect module mode (including EN state), not necessarily defective hardware; do not add wires or assume data mode without evidence.
