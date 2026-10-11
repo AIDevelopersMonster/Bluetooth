@@ -2,7 +2,7 @@
 
 **v0.1.0 source prototype · 2026-10-12 · Android 8+ · Java · Classic SPP/RFCOMM.**
 
-The Android application project is included. An installable APK is built via [GitHub Actions](../../actions/workflows/konsol-sppm-android.yml); **do not claim mobile hardware PASS until a real APK installation and SPP exchange have been observed**.
+The Android application project is included. **CI build VERIFIED SUCCESS:** [GitHub Actions #7](https://github.com/AIDevelopersMonster/Bluetooth/actions/runs/38182934799), commit `1757ad9` (2026-10-12), completed `:app:assembleDebug` and uploaded the artifact `KonSol-SPPM-v0.1-debug-apk` containing `app-debug.apk`. This certifies build and artifact production **only**. Installation, UI operation and SPP data exchange on the physical Android phone remain NOT TESTED.
 
 ## Functions
 
@@ -15,7 +15,7 @@ The Android application project is included. An installable APK is built via [Gi
 
 ## Build APK in GitHub
 
-1. Open **GitHub → Actions → Build KonSol-SPPM Android APK**.
+1. Open the [verified successful GitHub Actions #7](https://github.com/AIDevelopersMonster/Bluetooth/actions/runs/38182934799) or **GitHub → Actions → Build KonSol-SPPM Android APK**.
 2. Choose **Run workflow**, or check the build triggered by changes to \`KonSol-SPPM/\`.
 3. Confirm a **green** \`android-debug\` result.
 4. Download the artifact named \`KonSol-SPPM-v0.1-debug-apk\`; extract \`app-debug.apk\`, copy it to the Android phone and install. This is a lab debug APK (not a release).
@@ -38,7 +38,7 @@ cd C:\GitHub\Bluetooth\KonSol-SPPM
 .\tools\test-core.ps1
 \`\`\`
 
-Expected 9 PASS lines after the programmable-buttons extension. The Java HEX codec and Android XML structure were checked in authoring environment; an Android SDK was unavailable there, so APK assembly and phone/hardware tests must be checked separately.
+Expected 9 PASS lines after the programmable-buttons extension. Android `:app:assembleDebug` itself completed successfully in GitHub Actions #7. The Java HEX codec and Android XML structure were checked in authoring environment; an Android SDK was unavailable there, so APK assembly and phone/hardware tests must be checked separately.
 
 v0.1 limitations: foreground-only; no background service, BLE GATT, or discovery of unpaired devices; no PLC-specific command encoding yet; 40K character scrolling buffer; receiving split UTF-8 multibyte codepoints at packet boundaries can yield replacement characters. Each macro has its own encoding and EOL; the terminal text mode and EOL do not override programmed macros.
 
