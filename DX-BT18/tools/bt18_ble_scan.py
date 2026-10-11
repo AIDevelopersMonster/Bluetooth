@@ -43,7 +43,23 @@ except Exception as error:
 
 async def run(args: argparse.Namespace) -> int:
     print(f"BLE scan: {args.duration:g}s (NOT Classic SPP)")
-    discovered = await BleakScanner.discover(timeout=args.duration, return_adv=True)
+    try:
+        discovered = await BleakScanner.discover(timeout=args.duration, return_adv=True)
+    except Exception as error:
+        kind = type(error).__name__
+        print(f"BLE SCAN FAILED BEFORE DISCOVERY: {kind}: {error!r}", file=sys.stderr)
+        if kind == "BleakBluetoothNotAvailableError":
+            print(
+                "Windows WinRT cannot access a Bluetooth adapter. "
+                "Check Windows Bluetooth is enabled and run: "
+                "Get-PnpDevice -Class Bluetooth | Format-Table Status,FriendlyName -AutoSize",
+                file=sys.stderr,
+            )
+            print(
+                "GATT NOT ATTEMPTED. A previously confirmed BLE discovery PASS remains valid.",
+                file=sys.stderr,
+            )
+        return 3
     matches = 0
     for device, adv in sorted(discovered.values(), key=lambda item: item[0].address):
         name = adv.local_name or device.name or "(no name)"
@@ -132,7 +148,7 @@ def main() -> int:
     try:
         return asyncio.run(run(args))
     except (OSError, RuntimeError, TimeoutError, ValueError) as error:
-        print(f"Bluetooth error: {error}", file=sys.stderr)
+        print(f"Bluetooth backend error: {type(error).__name__}: {error!r}", file=sys.stderr)
         return 2
 
 
