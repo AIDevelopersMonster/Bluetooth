@@ -5,7 +5,8 @@
 | ID | Procedure | PASS condition | Key non-claim |
 |---|---|---|---|
 | TEST-01 UART / AT | **FULL PASS: 8/8**, CH340 COM4 at 9600, reported `V3.01` / `BT18-T` | Stable and complete read-only AT replies | AT syntax similarity does not prove maker or chip |
-| TEST-02 BLE | Scan unfiltered advertisements; note name/identifier; optional GATT enumeration | Reproducible observed advertisements and/or successful services enumeration | BLE does not prove Classic SPP |
+| TEST-02A BLE advertising | **PASS**: BT18-T found on Windows Python 3.14, `FFE0`, -79 dBm, `98:DA:F0:00:EE:27` | Actual broadcast received by Windows BLE adapter | GATT connection and SPP are NOT certified |
+| TEST-02B GATT | **PENDING**: enumerate FFE0 / FFE1 / FFE2 | BLE connection and actual service/characteristic list | Advertising UUID alone does not establish GATT |
 | TEST-03 Classic/SPP | Pair where supported; inspect OS-created serial port; bidirectional bytes | Exact TX/RX on actual UART and SPP, repeatable | No evidence of SPP merely from device name |
 | TEST-04 Identity | Compare both sides of PCB, radio shield, chip markings, AT response and GATT characteristics | Evidence-based family attribution, list alternatives and uncertainty | "DX-BT18" shop title is not part number evidence |
 | TEST-05 Firmware feasibility | Check confirmed SoC datasheet, memory organization, programmer, image provenance, OTP protection | Documentation-based decision; **no live writes** | ICE marking alone is not firmware compatibility |
