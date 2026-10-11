@@ -69,6 +69,30 @@ For one bounded retry of GATT enumeration using the corrected code:
 py -3.14 .\DX-BT18\tools\bt18_ble_scan.py --duration 8 --name BT18-T --address "98:DA:F0:00:EE:27" --connect-timeout 25
 ```
 
+## New observation: alternate advertising address
+
+A later 8-second scan reported:
+
+```text
+Name: BT18-T
+BLE address/OS identifier: 98:DA:F0:00:EA:99
+RSSI: -91 dBm (first scan), -87 dBm (repeat)
+Advertised service UUIDs: 0000ffe0-0000-1000-8000-00805f9b34fb
+Manufacturer data IDs: 0x0000
+```
+
+The script correctly refused a GATT request addressed to the **previously observed** `98:DA:F0:00:EE:27`, stating `GATT NOT ATTEMPTED`; that address was not in the fresh scan.
+
+Important correlation: `98:DA:F0:00:EA:99` is the exact **byte reversal** of the original read-only UART value `99ea00f0da98`; and the former BLE address `98:DA:F0:00:EE:27` is the byte reversal of the separately supplied `27ee00f0da98`. This supports two distinct address-value pairs. It does NOT prove there were two simultaneous physical devices; a change of unit, configuration, or address can explain the observations.
+
+Result remains TEST-02A **PASS** for both advertising observations; TEST-02B **NOT CONFIRMED**.
+
+To avoid stale addresses, the BLE tool now accepts `--connect-name BT18-T` and attempts a GATT connection **only if exactly one discovered device has that exact name**; if none or several are found, the program refuses to connect. This does not eliminate uncertainty about physical identity, but avoids selecting an obsolete BLE identifier.
+
+```powershell
+py -3.14 .\DX-BT18\tools\bt18_ble_scan.py --duration 8 --connect-name BT18-T --connect-timeout 25
+```
+
 ## Evidence boundaries
 
 **Certified by this test:** radio advertising was received by the PC BLE adapter; exact `BT18-T` name and `FFE0` service UUID appeared in the scan.
