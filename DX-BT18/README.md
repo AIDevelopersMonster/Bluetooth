@@ -1,5 +1,10 @@
 # DX-BT18 — DX-BT18 / BT18-compatible Bluetooth UART module
 
+> **Статус экземпляров BT18-T: CLOSED — NOT CERTIFIED (11.10.2026).** Исследование текущих безымянных экземпляров прекращено по решению владельца. Оригинальные маркированные DX-BT18 ранее работали отлично, прежние копии — хуже, нынешние `BT18-T` не обеспечили ожидаемого доступа к AT. Техническая причина не установлена. Материалы и утилиты сохранены **для справки и других образцов**. [Итог](tests/CLOSURE_2026-10-11.md).
+
+> **Способ запуска:** стандартный установленный Python (`py`), **без `.venv`**.
+
+
 **Если у вас ещё не установлен Git**, откройте PowerShell в Windows 10/11:
 
 ```powershell
@@ -44,27 +49,27 @@ py --version
 Если Python отсутствует, установите его с https://www.python.org/downloads/windows/ и откройте новый PowerShell. Из корня клонированного репозитория:
 
 ```powershell
-py -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r .\DX-BT18\tools\requirements.txt
-.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_probe.py --list-ports
+py --version
+py -m pip install --user -r .\DX-BT18\tools\requirements.txt
+py .\DX-BT18\tools\bt18_probe.py --list-ports
 ```
 
 Подключите модуль через адаптер USB-UART с логическими уровнями **3,3 В**. Подставьте фактический COM-порт (пример `COM4`):
 
 ```powershell
-.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile dual
+py .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile dual
 ```
 
 Если у вас BLE-only вариант или dual-mode не отвечает, разрешён второй профиль *чтения*:
 
 ```powershell
-.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile le
+py .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile le
 ```
 
 BLE-поиск с ПК:
 
 ```powershell
-.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_ble_scan.py --duration 10 --name BT18
+py .\DX-BT18\tools\bt18_ble_scan.py --duration 10 --name BT18
 ```
 
 Не используйте `--name BT18`, если устройство может рекламироваться под неизвестным именем: выполните полный поиск без фильтра.
@@ -72,7 +77,7 @@ BLE-поиск с ПК:
 После сканирования для **конкретного** найденного BLE-идентификатора можно получить карту GATT:
 
 ```powershell
-.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_ble_scan.py --address "DEVICE_ID_FROM_SCAN"
+py .\DX-BT18\tools\bt18_ble_scan.py --address "DEVICE_ID_FROM_SCAN"
 ```
 
 Этот шаг устанавливает BLE-соединение для перечисления сервисов. Он не записывает характеристики и не прошивает модуль. BLE-сканирование **не** проверяет Classic Bluetooth/SPP.
@@ -90,7 +95,7 @@ BLE-поиск с ПК:
 Из корня репозитория после `git pull --ff-only`:
 
 ```powershell
-.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile dual --command "AT+TEST" --start-delay 3 --timeout 0.6
+py .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile dual --command "AT+TEST" --start-delay 3 --timeout 0.6
 ```
 
 **Порядок:** модуль уже запитан, Bluetooth-соединение с телефоном отключено; запустить команду; когда программа покажет `Sending in 1...`, нажать кнопку на плате и удерживать до появления строки результата `AT+TEST`; затем **сразу отпустить**. Таким образом кнопка удерживается около 1–2 секунд, а не на протяжении всех восьми AT-команд. Одно короткое нажатие без удержания во время самой передачи для оригинального DX-BT18 недостаточно.
@@ -105,7 +110,7 @@ BLE-поиск с ПК:
 - Аппаратный производитель и SoC **не установлены**.
 - Оригинальная DX-SMART документация — справочник для сравнения, **не сертификат** нашей платы.
 - Номинально DX-BT18 — Bluetooth 4.2 Classic SPP + BLE UART; существует другая ветвь BT18-LE (BLE-only).
-- **Статус DX-BT18: PARTIAL OBSERVATION / TESTS PENDING.** На телефоне, по сообщению владельца (11.10.2026), устройство отображается как **`BT18-T`** (не `BT-18T` и не `BT-18T`); USB-UART CH340 определяется в Windows как `COM4`. Это ещё не подтверждает поддержку BLE, Classic SPP или ответов AT. Полного PASS нет. [Журнал наблюдений](tests/OBSERVATIONS_2026-10-11.md).
+- **Статус DX-BT18: CLOSED — NOT CERTIFIED.** По сообщению владельца, AT-интерфейс текущих экземпляров установить не удалось; телефон видит **`BT18-T`** (не `BT-18T`), а Windows определяет USB-UART CH340 на `COM4`. Это не удостоверяет BLE GATT, SPP или исправность UART модуля. Полного PASS нет. [Журнал](tests/OBSERVATIONS_2026-10-11.md) · [Итог](tests/CLOSURE_2026-10-11.md).
 
 Две независимые группы свидетельств: (а) ответы AT по UART и (б) фактическая BLE-реклама/GATT. Совпадающие имена, UUID или версия AT **не подтверждают** оригинальность чипа.
 
@@ -124,7 +129,7 @@ GND -------------------- GND
 - **Ограничение данного стенда: только четыре провода** — TX, RX, VCC и GND. Дополнительные выводы не подключаем, не запрашиваем и не считаем обязательным условием первого этапа.
 - По руководству **оригинального dual-mode DX-BT18** контакт **P26 (GPIO25)** требуется удерживать LOW для AT-режима; **BT18-LE** может вести себя иначе. На нашем четырёхпроводном стенде этот вход недоступен: если AT не отвечает, фиксируем **AT ACCESS NOT ESTABLISHED**, а не неисправность. Перепайку и дополнительные контакты не предлагаем.
 - Если AT недоступен, проверяем доступный прозрачный UART-обмен (при установленном Bluetooth-соединении) и отдельно BLE advertising/GATT. BLE-тест выполняется по радиоканалу, дополнительных проводов не требует.
-- Старт: UART **9600, 8N1, без аппаратного flow control**; команды завершать `CRLF`.
+- В руководстве **оригинального DX-SMART** заводские UART **9600, 8N1**, без аппаратного flow control; в разделе испытаний скорости передачи встречается 115200. Реальная скорость нашего немаркированного `BT18-T` **не определена**. Команды оригинала завершаются `CRLF`; на других прошивках может отличаться.
 - Освободите COM-порт (закройте Serial Monitor/другие клиенты). На время AT-проверки желательно отключить Bluetooth-подключения.
 - Отсутствие ответа при неверном режиме AT **не равно неисправности** модуля.
 
@@ -132,10 +137,10 @@ GND -------------------- GND
 
 | Тест | Цель | Статус |
 |---|---|---|
-| TEST-01 | UART-порт, версия, имя, MAC, baud, PIN, UUID, flow control | PENDING |
-| TEST-02 | BLE advertising, фактическое имя, сервисы/характеристики GATT | PENDING |
-| TEST-03 | Classic Bluetooth SPP, если поддерживается; прозрачный UART обмен | PENDING |
-| TEST-04 | Сопоставление корпуса, pinout, AT-профиля, BLE-фингерпринта | PENDING |
+| TEST-01 | UART-порт, версия, имя, MAC, baud, PIN, UUID, flow control | **CLOSED — AT NOT ESTABLISHED** |
+| TEST-02 | BLE advertising, фактическое имя, сервисы/характеристики GATT | **PARTIAL**: телефон видит BT18-T, GATT не установлен |
+| TEST-03 | Classic Bluetooth SPP, если поддерживается; прозрачный UART обмен | **NOT CERTIFIED — CLOSED** |
+| TEST-04 | Сопоставление корпуса, pinout, AT-профиля, BLE-фингерпринта | **NOT IDENTIFIED — CLOSED** |
 | TEST-05 | Аудит интерфейсов ICE/VPP/EEPROM/SoC; решение о прошивке | RESEARCH ONLY |
 
 **Правило доказательств:** ответ на одну AT-команду не подтверждает остальные; успешный BLE scan не доказывает SPP; программный запуск не является физическим PASS.

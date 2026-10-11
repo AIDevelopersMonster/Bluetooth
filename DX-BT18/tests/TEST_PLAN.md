@@ -1,6 +1,6 @@
 # DX-BT18 — TEST plan and acceptance criteria
 
-**Current evidence status: ALL PENDING.** No commands have been tested on the purchased unmarked module yet. Test commands do not imply a certified PASS.
+**CLOSED / NOT CERTIFIED (11.10.2026).** The owner reports that current unmarked BT18-T units were tested without establishing expected AT communication; technical cause unknown. The commands below are an **archived reproducibility guide**, not a request for further diagnostics of these specimens. [Closure report](CLOSURE_2026-10-11.md).
 
 | ID | Procedure | PASS condition | Key non-claim |
 |---|---|---|---|
@@ -10,6 +10,10 @@
 | TEST-04 Identity | Compare both sides of PCB, radio shield, chip markings, AT response and GATT characteristics | Evidence-based family attribution, list alternatives and uncertainty | "DX-BT18" shop title is not part number evidence |
 | TEST-05 Firmware feasibility | Check confirmed SoC datasheet, memory organization, programmer, image provenance, OTP protection | Documentation-based decision; **no live writes** | ICE marking alone is not firmware compatibility |
 
+## Execution: standard Python, no virtual environment
+
+Run `py -m pip install --user -r .\DX-BT18\tools\requirements.txt` once from the repository root if dependencies are missing. Then call all scripts directly with `py`; no `.venv` activation is required.
+
 ## Short single-command button check (before full AT sweep)
 
 Use this method **only if the board has a physical button whose role is still unverified**. In the original DX-BT18 reference circuit KEY1 grounds P26/GPIO25; there is no universal proof that the unmarked `BT18-T` button has the same wiring. Do not use HC-05 power-on or long-press/reset rituals.
@@ -18,7 +22,7 @@ Use this method **only if the board has a physical button whose role is still un
 2. From `C:\GitHub\Bluetooth`, after `git pull --ff-only`, run:
 
 ```powershell
-.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile dual --command "AT+TEST" --start-delay 3 --timeout 0.6
+py .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile dual --command "AT+TEST" --start-delay 3 --timeout 0.6
 ```
 
 3. Press the on-board button only when the countdown shows `Sending in 1...`; **hold through sending/reading until result**, then release immediately.
@@ -29,14 +33,14 @@ Use this method **only if the board has a physical button whose role is still un
 ```powershell
 Set-Location C:\GitHub\Bluetooth
 git pull --ff-only
-.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_probe.py --list-ports
-.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile dual --json .\DX-BT18\results\test-01-dual.json
+py .\DX-BT18\tools\bt18_probe.py --list-ports
+py .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile dual --json .\DX-BT18\results\test-01-dual.json
 ```
 
 **Physical stand constraint: FOUR WIRES ONLY (VCC, GND, TX, RX).** No KEY/EN/ICE/VPP/P26 connections, jumper experiments or soldering. The original dual-mode DX-BT18 documentation mentions P26/GPIO25 LOW for AT mode, but our four-wire clone does not expose that control to the test. No AT response therefore means **AT ACCESS NOT ESTABLISHED**, not hardware FAIL. Try the documented LE read-only variant at most once if applicable:
 
 ```powershell
-.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile le
+py .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile le
 ```
 
 If settings were previously changed, choose a different **known** baud. Avoid brute-force commands that change configuration.
@@ -44,13 +48,13 @@ If settings were previously changed, choose a different **known** baud. Avoid br
 ## TEST-02 command sequence
 
 ```powershell
-.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_ble_scan.py --duration 12
+py .\DX-BT18\tools\bt18_ble_scan.py --duration 12
 ```
 
 Copy the actual BLE address/OS identifier from the output only if the user wants GATT enumeration:
 
 ```powershell
-.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_ble_scan.py --address "ACTUAL_DEVICE_IDENTIFIER"
+py .\DX-BT18\tools\bt18_ble_scan.py --address "ACTUAL_DEVICE_IDENTIFIER"
 ```
 
 ## Evidence standard

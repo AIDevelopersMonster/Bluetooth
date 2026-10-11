@@ -1,6 +1,6 @@
 # DX-BT18 / BT18-LE: AT command registry and access levels
 
-This is a **documentation-based reference**, not a certified command list for the unmarked purchased module. Default serial settings in the original manual: 9600 baud, 8N1, CRLF, uppercase commands. Original dual-mode requires module P26 (GPIO25) LOW to enter AT mode; BT18-LE differs.
+**ARCHIVED REFERENCE — current BT18-T units: CLOSED / NOT CERTIFIED (2026-10-11).** This is a **documentation-based reference**, not a certified command list for the unmarked purchased module. Default serial settings in the original manual: 9600 baud, 8N1, CRLF, uppercase commands. Original dual-mode requires module P26 (GPIO25) LOW to enter AT mode; BT18-LE differs.
 
 ## Dual-mode DX-BT18
 

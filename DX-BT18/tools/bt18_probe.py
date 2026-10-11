@@ -17,7 +17,7 @@ try:
     import serial
     from serial.tools import list_ports
 except ImportError:
-    print("Missing pyserial. Install: py -m pip install -r DX-BT18/tools/requirements.txt", file=sys.stderr)
+    print("Missing pyserial. Install: py -m pip install --user -r DX-BT18/tools/requirements.txt", file=sys.stderr)
     sys.exit(2)
 
 DUAL_READ = (
