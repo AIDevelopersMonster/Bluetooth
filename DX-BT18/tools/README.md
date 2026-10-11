@@ -33,8 +33,11 @@ A silent module could simply need its verified AT-mode pin asserted. Do not gues
 
 ## BLE discovery
 
+**Verified on this PC:** use `py -3.14` explicitly (Bleak 2.1.1 is installed for Python 3.14, whereas the unqualified script launch had selected Python 3.9.13). Actual TEST-02A is **PASS**: `BT18-T`, FFE0, RSSI -79 dBm. [Evidence](../tests/TEST-02_BLE_DISCOVERY_2026-10-12.md).
+
+
 ```powershell
-py .\DX-BT18\tools\bt18_ble_scan.py --duration 12
+py -3.14 .\DX-BT18\tools\bt18_ble_scan.py --duration 12
 py .\DX-BT18\tools\bt18_ble_scan.py --duration 12 --name BT18
 ```
 
