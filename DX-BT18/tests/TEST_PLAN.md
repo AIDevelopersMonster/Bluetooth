@@ -1,4 +1,4 @@
-# LAB-06 тАФ TEST plan and acceptance criteria
+# DX-BT18 — TEST plan and acceptance criteria
 
 **Current evidence status: ALL PENDING.** No commands have been tested on the purchased unmarked module yet. Test commands do not imply a certified PASS.
 
@@ -13,16 +13,16 @@
 ## TEST-01 command sequence (PowerShell)
 
 ```powershell
-Set-Location C:\\GitHub\\Arduino-UNO-Shields
+Set-Location C:\GitHub\Bluetooth
 git pull --ff-only
-.\\.venv\\Scripts\\python.exe .\\tools\\bt18\\bt18_probe.py --list-ports
-.\\.venv\\Scripts\\python.exe .\\tools\\bt18\\bt18_probe.py --port COM4 --baud 9600 --profile dual --json .\\labs\\06-Bluetooth-DX-BT18\\results\\test-01-dual.json
+.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_probe.py --list-ports
+.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile dual --json .\DX-BT18\results\test-01-dual.json
 ```
 
 If the original dual-mode AT switch pin is independently identified and accessible, P26/GPIO25 LOW is described for the original module; **do not** short unverified contacts on a clone. If no response and an LE-only variant is plausible:
 
 ```powershell
-.\\.venv\\Scripts\\python.exe .\\tools\\bt18\\bt18_probe.py --port COM4 --baud 9600 --profile le
+.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile le
 ```
 
 If settings were previously changed, choose a different **known** baud. Avoid brute-force commands that change configuration.
@@ -30,13 +30,13 @@ If settings were previously changed, choose a different **known** baud. Avoid br
 ## TEST-02 command sequence
 
 ```powershell
-.\\.venv\\Scripts\\python.exe .\\tools\\bt18\\bt18_ble_scan.py --duration 12
+.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_ble_scan.py --duration 12
 ```
 
 Copy the actual BLE address/OS identifier from the output only if the user wants GATT enumeration:
 
 ```powershell
-.\\.venv\\Scripts\\python.exe .\\tools\\bt18\\bt18_ble_scan.py --address "ACTUAL_DEVICE_IDENTIFIER"
+.\.venv\Scripts\python.exe .\DX-BT18\tools\bt18_ble_scan.py --address "ACTUAL_DEVICE_IDENTIFIER"
 ```
 
 ## Evidence standard

@@ -6,8 +6,8 @@ This is a **documentation-based reference**, not a certified command list for th
 
 | Function | Documented read/test | Documented write/action | First-pass probe |
 |---|---|---|---|
-| AT test | `AT+TEST` | тАФ | YES |
-| Firmware version | `AT+VERS?` | тАФ | YES |
+| AT test | `AT+TEST` | — | YES |
+| Firmware version | `AT+VERS?` | — | YES |
 | Bluetooth address | `AT+ADSS?` | `AT+ADSS=<MAC>` | YES |
 | Device name | `AT+NAME?` | `AT+NAME=<name>` | YES |
 | UART speed | `AT+BAUD?` | `AT+BAUD=<1..5>` | YES |
@@ -17,7 +17,7 @@ This is a **documentation-based reference**, not a certified command list for th
 | Notify UUID | via `AT+UUID?` | `AT+NOTIFY=<uuid>` | NO write |
 | Write UUID | via `AT+UUID?` | Manual prints `AT+WRITE?=...` (suspicious) | NO write |
 | Flow control | `AT+FLOW?` | `AT+FLOW=0/1` | YES |
-| Disconnect link | тАФ | `AT+DIS?` (has effect!) | NO |
+| Disconnect link | — | `AT+DIS?` (has effect!) | NO |
 
 The manual maps `AT+BAUD` values: 1=9600, 2=19200, 3=38400, 4=57600, 5=115200. A power cycle is specified after changing baud rate. Factory advertised BLE UUIDs: service FFE0, notify FFE1, write FFE2. The manual shows swapped byte order in configuration examples (`e0ff` etc.). Do not assume a cloned firmware uses the same convention.
 
@@ -27,9 +27,9 @@ The manual maps `AT+BAUD` values: 1=9600, 2=19200, 3=38400, 4=57600, 5=115200. A
 
 | Function | Read/test | Write (not part of the first test) |
 |---|---|---|
-| AT test | `AT` | тАФ |
-| Version | `AT+VER` | тАФ |
-| Address | `AT+ADDR` | тАФ |
+| AT test | `AT` | — |
+| Version | `AT+VER` | — |
+| Address | `AT+ADDR` | — |
 | Name | `AT+NAME` | `AT+NAME=<name>` |
 | Baud | `AT+BAUD` | `AT+BAUD=<1..5>` |
 | Service UUID | `AT+SERV` | `AT+SERV=<uuid>` |

@@ -1,4 +1,4 @@
-# LAB-06 тАФ TEST-XX result YYYY-MM-DD
+# DX-BT18 — TEST-XX result YYYY-MM-DD
 
 > Template only; **no physical result is claimed by this file**.
 
