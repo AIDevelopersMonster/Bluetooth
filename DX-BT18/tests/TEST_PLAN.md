@@ -1,10 +1,10 @@
 # DX-BT18 — TEST plan and acceptance criteria
 
-**CLOSED / NOT CERTIFIED (11.10.2026).** The owner reports that current unmarked BT18-T units were tested without establishing expected AT communication; technical cause unknown. The commands below are an **archived reproducibility guide**, not a request for further diagnostics of these specimens. [Closure report](CLOSURE_2026-10-11.md).
+**ACTIVE, TEST-01 FULL PASS (2026-10-12)**. User-supplied CH340 `COM4` log at 9600 baud shows **8/8 responses** to documented read-only DX-BT18 AT queries. This **supersedes** the earlier CLOSED / NOT CERTIFIED decision recorded on 2026-10-11, but does not certify genuine silicon, Classic SPP or BLE GATT. [Physical result](TEST-01_AT_UART_RESULT_2026-10-12.md) · [superseded closure record](CLOSURE_2026-10-11.md).
 
 | ID | Procedure | PASS condition | Key non-claim |
 |---|---|---|---|
-| TEST-01 UART / AT | Identify USB-UART port; 9600 8N1; try dual and LE **read-only** profiles if needed | Stable, intelligible repeated responses with raw console evidence | AT syntax similarity does not prove maker or chip |
+| TEST-01 UART / AT | **FULL PASS: 8/8**, CH340 COM4 at 9600, reported `V3.01` / `BT18-T` | Stable and complete read-only AT replies | AT syntax similarity does not prove maker or chip |
 | TEST-02 BLE | Scan unfiltered advertisements; note name/identifier; optional GATT enumeration | Reproducible observed advertisements and/or successful services enumeration | BLE does not prove Classic SPP |
 | TEST-03 Classic/SPP | Pair where supported; inspect OS-created serial port; bidirectional bytes | Exact TX/RX on actual UART and SPP, repeatable | No evidence of SPP merely from device name |
 | TEST-04 Identity | Compare both sides of PCB, radio shield, chip markings, AT response and GATT characteristics | Evidence-based family attribution, list alternatives and uncertainty | "DX-BT18" shop title is not part number evidence |
@@ -14,7 +14,17 @@
 
 Run `py -m pip install --user -r .\DX-BT18\tools\requirements.txt` once from the repository root if dependencies are missing. Then call all scripts directly with `py`; no `.venv` activation is required.
 
-## Short single-command button check (before full AT sweep)
+## TEST-01 confirmed result
+
+The executed command was:
+
+```powershell
+py .\DX-BT18\tools\bt18_probe.py --port COM4 --baud 9600 --profile dual
+```
+
+Observed: **8/8 correctly formatted responses and OK status**, see [protocol](TEST-01_AT_UART_RESULT_2026-10-12.md). The published transcript does **not** establish whether a physical button was held during the successful sweep, so do not infer its wiring.
+
+## Earlier short single-command button check (historical)
 
 Use this method **only if the board has a physical button whose role is still unverified**. In the original DX-BT18 reference circuit KEY1 grounds P26/GPIO25; there is no universal proof that the unmarked `BT18-T` button has the same wiring. Do not use HC-05 power-on or long-press/reset rituals.
 

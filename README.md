@@ -4,7 +4,7 @@ Independent laboratory for Bluetooth modules, UART bridges, BLE/GATT studies and
 
 ## Modules
 
-- [DX-BT18 / BT18-T — archived identification lab](DX-BT18/README.md) — **CLOSED / NOT CERTIFIED** for the unmarked tested samples. Original marked units had worked well for the owner; these specimens did not yield usable AT access. Historical documentation and read-only scripts are retained.
+- [DX-BT18 / BT18-T](DX-BT18/README.md) — **ACTIVE, TEST-01 UART/AT FULL PASS (2026-10-12)**. Real CH340 COM4 exchange at 9600 baud: **8/8 AT queries answered**, firmware reported `V3.01`, name `BT18-T`. Chip authenticity and Bluetooth payload transfer remain unverified. [Read the certified test record](DX-BT18/tests/TEST-01_AT_UART_RESULT_2026-10-12.md).
 
 ## Windows quick start
 
@@ -22,4 +22,4 @@ py .\DX-BT18\tools\bt18_probe.py --list-ports
 
 Existing clones: `cd C:\GitHub\Bluetooth; git pull --ff-only`.
 
-The lab is separate from Arduino-UNO-Shields. **No venv is needed**: use the installed Windows Python via `py`. Dependencies are installed in the user's Python environment with `--user`. Testing of the current unmarked DX-BT18 specimens is CLOSED / NOT CERTIFIED, not a PASS.
+The lab is separate from Arduino-UNO-Shields. **No venv is needed**: use the installed Windows Python via `py`. Dependencies are installed in the user's Python environment with `--user`. TEST-01 has a physical FULL PASS for the reported read-only UART/AT exchange; all other hardware functions remain separately unverified.
