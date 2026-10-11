@@ -43,7 +43,16 @@
   <Button android:id="@+id/macro3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M3"/>
   <Button android:id="@+id/macro4" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M4"/>
  </LinearLayout>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+  <Button android:id="@+id/macro5" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M5"/>
+  <Button android:id="@+id/macro6" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M6"/>
+  <Button android:id="@+id/macro7" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M7"/>
+  <Button android:id="@+id/macro8" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M8"/>
+ </LinearLayout>
+ <Button android:id="@+id/configureMacrosButton" android:layout_width="match_parent" android:layout_height="wrap_content"
+  android:text="НАСТРОИТЬ КОМАНДНЫЕ КНОПКИ"/>
  <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-  android:text="Удерживайте M1–M4 для редактирования • только Classic SPP"
+  android:text="Приём RX — в области журнала; ввод и SEND — ниже. Удержание кнопки открывает редактор."
+
   android:textColor="#86AFC6" android:textSize="10sp"/>
 </LinearLayout>
