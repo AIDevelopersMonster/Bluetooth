@@ -8,8 +8,8 @@ Independent laboratory for Bluetooth modules, UART bridges, BLE/GATT studies and
 
 ## KonSol-SPPM — Android Classic SPP console
 
-- [KonSol-SPPM v0.1 native Android source](KonSol-SPPM/README.md) — paired Classic SPP/RFCOMM, live RX/TX, TEXT/HEX terminal, command macros, shareable logs.
-- [GitHub Actions APK build](.github/workflows/konsol-sppm-android.yml) — produces a **debug APK** as a workflow artifact once the CI run completes successfully. The Android build and phone SPP data transport have **not yet been independently confirmed**.
+- [KonSol-SPPM v0.1.1 — Android 7.0+](KonSol-SPPM/README.md) — paired Classic SPP/RFCOMM, RX/TX terminal, TEXT/HEX, 8 configurable command buttons, shareable logs.
+- [GitHub Actions APK build](.github/workflows/konsol-sppm-android.yml): choose the successful **v0.1.1 Android7** artifact. Earlier v0.1 builds required Android 8 and cannot install on Android 7. Hardware SPP exchange remains unverified.
 - The Windows BLE/GATT test is closed as inconclusive; this mobile app tests **Classic SPP**, not BLE.
 
 ## Windows quick start

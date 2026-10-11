@@ -1,45 +1,37 @@
-# KonSol-SPPM — KON Serial Port Profile Mobile
+# KonSol-SPPM — мобильный терминал и пульт Bluetooth Classic SPP
 
-**v0.1.0 source prototype · 2026-10-12 · Android 8+ · Java · Classic SPP/RFCOMM.**
+**v0.1.1 · Android 7.0+ (API 24–...) · Java · Bluetooth Classic SPP/RFCOMM.**
 
-The Android application project is included. **CI build VERIFIED SUCCESS:** [GitHub Actions #7](https://github.com/AIDevelopersMonster/Bluetooth/actions/runs/38182934799), commit `1757ad9` (2026-10-12), completed `:app:assembleDebug` and uploaded the artifact `KonSol-SPPM-v0.1-debug-apk` containing `app-debug.apk`. This certifies build and artifact production **only**. Installation, UI operation and SPP data exchange on the physical Android phone remain NOT TESTED.
+## Совместимость
 
-## Functions
+- **Android 7.0 (API 24)** и **7.1 (API 25)** поддерживаются (в Gradle `minSdk 24`).
+- Требуется именно **Bluetooth Classic SPP** с сопряжённым устройством. BLE GATT здесь не реализован.
+- Android 7 использует системное разрешение `BLUETOOTH`; на Android 12+ приложение запрашивает `BLUETOOTH_CONNECT`.
+- Нет сетевого доступа, рекламы и сторонних зависимостей в APK. Отладочный APK создаётся через GitHub Actions.
+- **Старый артефакт** `KonSol-SPPM-v0.1-debug-apk` из запусков #7/#8 имел `minSdk 26` и **не устанавливается на Android 7**. Для тестового телефона используйте только **`KonSol-SPPM-v0.1.1-Android7-debug-apk`** из успешной новой сборки.
 
-- Already paired Bluetooth Classic devices: list/name/address, connect/disconnect, asynchronous RFCOMM SPP UUID \`00001101-0000-1000-8000-00805F9B34FB\`.
-- Live timestamped RX/TX log, packet byte counts, TEXT UTF-8 / HEX display, Share log, Clear.
-- Send TEXT with none/CR/LF/CRLF, or raw HEX bytes without EOL.
-- **Eight assignable command buttons M1–M8.** Tap to transmit immediately; hold a button or tap **НАСТРОИТЬ КОМАНДНЫЕ КНОПКИ** to configure. Each button stores an individual label, complete command, encoding **TEXT UTF-8/HEX**, and EOL (none/CR/LF/CRLF). Commands survive app restarts. M5–M8 are initially unassigned; assign them through the settings button.
-- Dedicated scrollable, timestamped **RX area** and separate manual command input **SEND**; byte TX/RX logging is independent of macro button configuration.
-- Android 12+ nearby-devices permission BLUETOOTH_CONNECT; no network or location permission.
+## Функции
 
-## Build APK in GitHub
+- Выбор **уже сопряжённого** устройства, подключение/отключение SPP по стандартному UUID `00001101-0000-1000-8000-00805F9B34FB`.
+- Область приёма RX и журнал TX/RX с временем и числом байтов, очистка и экспорт журнала.
+- Отдельная строка команды и кнопка **SEND**. Режимы **TEXT UTF-8** и **HEX**, окончания строки None / CR / LF / CRLF.
+- **Восемь назначаемых кнопок M1–M8** с отдельными названием, командой, режимом TEXT/HEX и окончанием строки. Настройки сохраняются на телефоне. Долгое нажатие или кнопка **«НАСТРОИТЬ КОМАНДНЫЕ КНОПКИ»** открывают редактор.
+- M1–M4 имеют демонстрационные значения PING/STATUS/HELP/? (их надо заменить командами реального устройства); M5–M8 не назначены.
 
-1. Open the [verified successful GitHub Actions #7](https://github.com/AIDevelopersMonster/Bluetooth/actions/runs/38182934799) or **GitHub → Actions → Build KonSol-SPPM Android APK**.
-2. Choose **Run workflow**, or check the build triggered by changes to \`KonSol-SPPM/\`.
-3. Confirm a **green** \`android-debug\` result.
-4. Download the artifact named \`KonSol-SPPM-v0.1-debug-apk\`; extract \`app-debug.apk\`, copy it to the Android phone and install. This is a lab debug APK (not a release).
-5. If the workflow fails, collect the error log before claiming a deliverable APK.
+## Сборка и скачивание
 
-Local Android Studio: open the \`KonSol-SPPM\` folder, sync and run \`:app:assembleDebug\`. AGP 8.9.2, Gradle 8.11.1, JDK 17, Android SDK 35.
+[GitHub Actions: Build KonSol-SPPM Android APK](https://github.com/AIDevelopersMonster/Bluetooth/actions/workflows/konsol-sppm-android.yml).
 
-## Using BT18-T
+Откройте последний **успешный** запуск для v0.1.1. В разделе **Artifacts** скачайте `KonSol-SPPM-v0.1.1-Android7-debug-apk`, распакуйте ZIP и перенесите `app-debug.apk` на телефон. Установите APK через файловый менеджер, разрешив установку приложений из этого источника, если Android об этом попросит. *Название артефакта (ZIP) не равно размеру самого APK.*
 
-Pair BT18-T from **Android system Bluetooth settings (Classic)** first. The test UART \`AT+PIN?\` returned \`1234\` on an observed unit; pairing may be different per module. Open the app, allow Nearby devices, tap **СПИСОК**, select paired BT18-T using its address (two modules can have identical names) and tap **CONNECT**. If RFCOMM connects, use TEXT or HEX terminal and four configurable macros. Do not assume BLE discovery means Classic SPP support.
+CI обязан: (1) скомпилировать классы кодека и пройти 9 JVM-проверок, (2) собрать APK, (3) подтвердить наличие `classes.dex`, (4) распечатать `aapt dump badging` и проверить `sdkVersion: 24`, (5) выгрузить отладочный APK. До зелёного CI и реального теста на телефоне нельзя утверждать, что эта версия работоспособна в аппаратном обмене.
 
-A complete data PASS requires bytes to appear on a UART attached to the **same** physical module. The diagnostic Windows BLE timeout has no bearing on Android Classic SPP.
+Локально: Android Gradle Plugin 8.9.2, Gradle 8.11.1, JDK 17, Android SDK 35, задача `:app:assembleDebug`.
 
-## Tests and constraints
+## Быстрый тест
 
-JDK-only codec tests:
+Сопрягите `BT18-T` через системные настройки **Bluetooth Classic** телефона (PIN `1234` был прочитан на одном экземпляре, но не гарантируется для всех). Откройте приложение, нажмите **СПИСОК**, выберите нужный модуль по адресу, затем **CONNECT**. Отправьте текстовую команду через SEND или назначенную кнопку; проверьте, что реальные байты дошли до UART этого **же** физического модуля. BLE обнаружение и постоянное свечение светодиода сами по себе не подтверждают Classic SPP.
 
-\`\`\`powershell
-cd C:\GitHub\Bluetooth\KonSol-SPPM
-.\tools\test-core.ps1
-\`\`\`
+## Ограничения
 
-Expected 9 PASS lines after the programmable-buttons extension. Android `:app:assembleDebug` itself completed successfully in GitHub Actions #7. The Java HEX codec and Android XML structure were checked in authoring environment; an Android SDK was unavailable there, so APK assembly and phone/hardware tests must be checked separately.
-
-v0.1 limitations: foreground-only; no background service, BLE GATT, or discovery of unpaired devices; no PLC-specific command encoding yet; 40K character scrolling buffer; receiving split UTF-8 multibyte codepoints at packet boundaries can yield replacement characters. Each macro has its own encoding and EOL; the terminal text mode and EOL do not override programmed macros.
-
-Files: \`MainActivity.java\` UI, \`SppClient.java\` RFCOMM, \`HexCodec.java\` bytes, \`tools/TestCodec.java\` JDK unit test, \`../.github/workflows/konsol-sppm-android.yml\` build workflow. Independent original downloadable full source archive is attached in the ChatGPT conversation.
+Версия работает на переднем плане, не является Bluetooth BLE GATT клиентом. Новых несопряжённых устройств не ищет. Передача split UTF-8 последовательностей через несколько приёмов может отображаться с символами замены; в HEX режиме байты сохраняются корректно. Проверка реального SPP обмена и интерфейса на Android 7 — отдельный аппаратный тест.
