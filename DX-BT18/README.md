@@ -135,12 +135,14 @@ GND -------------------- GND
 - Освободите COM-порт (закройте Serial Monitor/другие клиенты). На время AT-проверки желательно отключить Bluetooth-подключения.
 - Отсутствие ответа при неверном режиме AT **не равно неисправности** модуля.
 
+[TEST-02A: подтверждённое BLE-вещание на Python 3.14](tests/TEST-02_BLE_DISCOVERY_2026-10-12.md): `BT18-T`, адрес `98:DA:F0:00:EE:27`, сервис `FFE0`. Для GATT нужен отдельный тест.
+
 ## 3. Что именно проверяем
 
 | Тест | Цель | Статус |
 |---|---|---|
 | TEST-01 | UART-порт, версия, имя, MAC, baud, PIN, UUID, flow control | **FULL PASS — 8/8 на 9600** |
-| TEST-02 | BLE advertising, фактическое имя, сервисы/характеристики GATT | **PARTIAL**: телефон видит BT18-T, GATT не установлен |
+| TEST-02 | BLE advertising, фактическое имя, сервисы/характеристики GATT | **TEST-02A PASS**: ПК обнаружил BT18-T, FFE0, RSSI -79 dBm; **TEST-02B GATT PENDING** |
 | TEST-03 | Classic Bluetooth SPP, если поддерживается; прозрачный UART обмен | **PENDING** |
 | TEST-04 | Сопоставление корпуса, pinout, AT-профиля, BLE-фингерпринта | **PARTIAL**: AT fingerprint получен, маркировка отсутствует |
 | TEST-05 | Аудит интерфейсов ICE/VPP/EEPROM/SoC; решение о прошивке | RESEARCH ONLY |
