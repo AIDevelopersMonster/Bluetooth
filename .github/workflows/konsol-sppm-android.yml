@@ -22,8 +22,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Check preinstalled Android SDK
+        run: |
+          test -d "$ANDROID_HOME"
+          command -v sdkmanager
+          sdkmanager --version
       - name: Gradle 8.11.1
         uses: gradle/actions/setup-gradle@v4
         with:
