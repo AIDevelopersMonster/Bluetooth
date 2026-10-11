@@ -44,6 +44,31 @@ This strongly links the separately provided `27ee00f0da98` identifier to the dis
 
 The two values are published at the owner's request. BLE addresses and configuration fields are **not guaranteed to be globally unique on programmable clones**; this test does not establish a public-vs-random address type or genuine chip manufacturer.
 
+## Repeated scan and host-side GATT blocker (2026-10-12)
+
+Additional user-supplied terminal observations, preserving the order of events:
+
+| Trial | Action | Result |
+| --- | --- | --- |
+| TEST-02A initial | 12 s unfiltered scan | **PASS**, BT18-T / FFE0 / RSSI **-79 dBm** |
+| TEST-02B attempt 1 | 12 s target scan followed by GATT connect | Target discovered again, **-87 dBm**; subsequent GATT connection failed with a blank `Bluetooth error:`; no GATT characteristics obtained |
+| TEST-02B attempt 2 | GATT attempt following updated code | **Blocked before scanning**: `BleakBluetoothNotAvailableError(... NO_BLUETOOTH)` from Windows WinRT, so **no GATT connection attempted** |
+| TEST-02A repeated | 8 s filtered scan with `py -3.14` | **PASS**, BT18-T / FFE0 / RSSI **-82 dBm**, address `98:DA:F0:00:EE:27` |
+
+Actual last command:
+
+```powershell
+py -3.14 .\DX-BT18\tools\bt18_ble_scan.py --duration 8 --name BT18-T
+```
+
+The repeated successful scan confirms that Windows can **again** access its BLE adapter and that BT18-T advertising is observable. The earlier WinRT `NO_BLUETOOTH` was an **intermittent host-side availability failure** at that moment; its precise cause was not diagnosed. GATT is **NOT CERTIFIED / PENDING**, not device FAIL. The RSSI variations from -79 to -87 to -82 dBm were measured at unspecified geometry and do not establish range or link quality.
+
+For one bounded retry of GATT enumeration using the corrected code:
+
+```powershell
+py -3.14 .\DX-BT18\tools\bt18_ble_scan.py --duration 8 --name BT18-T --address "98:DA:F0:00:EE:27" --connect-timeout 25
+```
+
 ## Evidence boundaries
 
 **Certified by this test:** radio advertising was received by the PC BLE adapter; exact `BT18-T` name and `FFE0` service UUID appeared in the scan.
@@ -54,7 +79,7 @@ The two values are published at the owner's request. BLE addresses and configura
 
 ```powershell
 cd C:\GitHub\Bluetooth
-py -3.14 .\DX-BT18\tools\bt18_ble_scan.py --duration 12 --name BT18-T --address "98:DA:F0:00:EE:27"
+py -3.14 .\DX-BT18\tools\bt18_ble_scan.py --duration 8 --name BT18-T --address "98:DA:F0:00:EE:27" --connect-timeout 25
 ```
 
 This will attempt to **connect** to the discovered device and enumerate GATT services and characteristic properties, without reading or writing characteristic values. Do not press the button or change the proven setup merely for this read-only discovery. A connection failure must be reported separately from this successful BLE advertising test.
