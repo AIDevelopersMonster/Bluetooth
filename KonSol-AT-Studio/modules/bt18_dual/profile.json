@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "bt18_dual",
+  "title": "BT18-T / DX-BT18 (SPP + BLE)",
+  "baud": 9600,
+  "ending": "CRLF",
+  "timeout_ms": 650,
+  "verified_reads": true,
+  "notes": "Lab evidence: 8/8 READ commands at COM4 9600 8N1, EN held low, no button press (12 Oct 2026). WRITE commands are documented but not physically validated. Disconnect the Android SPP session before changing AT settings. Module/chip authenticity unknown.",
+  "reference": "https://manuals.plus/m/b2042a61df3340ba1f528646b16efdf3d786b18f2edb66204799996c10bea264",
+  "queries": [
+    {"id": "test", "label": "AT / connection test", "command": "AT+TEST"},
+    {"id": "version", "label": "Firmware version", "command": "AT+VERS?", "prefix": "+VERS="},
+    {"id": "address", "label": "Bluetooth address", "command": "AT+ADSS?", "prefix": "+ADSS="},
+    {"id": "name", "label": "Bluetooth name", "command": "AT+NAME?", "prefix": "+NAME=", "edit": {"template": "AT+NAME={value}", "pattern": "[A-Za-z0-9 _.\\-]{1,19}", "risk": "medium", "hint": "ASCII name, up to 19 bytes; pairing may need to be refreshed."}},
+    {"id": "baud", "label": "UART baud index", "command": "AT+BAUD?", "prefix": "+BAUD=", "edit": {"template": "AT+BAUD={value}", "pattern": "[1-5]", "risk": "high", "power_cycle": true, "choices": {"1": "9600", "2": "19200", "3": "38400", "4": "57600", "5": "115200"}, "hint": "Takes effect after power cycle. Set your PC COM speed accordingly."}},
+    {"id": "pin", "label": "SPP pairing PIN", "command": "AT+PIN?", "prefix": "+PIN=", "edit": {"template": "AT+PIN={value}", "pattern": "[0-9]{4}", "risk": "high", "hint": "Four digits. Re-pair previously bonded phones after changing the PIN."}},
+    {"id": "uuid", "label": "BLE UUID triplet", "command": "AT+UUID?", "prefix": "+UUID="},
+    {"id": "flow", "label": "UART flow control", "command": "AT+FLOW?", "prefix": "+FLOW=", "edit": {"template": "AT+FLOW={value}", "pattern": "[01]", "choices": {"0": "OFF", "1": "ON"}, "risk": "high", "enabled": false, "hint": "Hardware flow control can disable UART on adapters without RTS/CTS. Disabled pending specific bench verification."}}
+  ],
+  "factory_reset": null
+}
