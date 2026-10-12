@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "bt18_le",
+  "title": "BT18-LE (BLE only)",
+  "baud": 9600,
+  "ending": "CRLF",
+  "timeout_ms": 650,
+  "verified_reads": false,
+  "notes": "REFERENCE PROFILE ONLY: BT18-LE is BLE-only and cannot be connected by the KonSol-SPPM Classic SPP Android app. No physical BT18-LE device has been tested in this laboratory. Check exact firmware before writing.",
+  "reference": "https://manuals.plus/m/b2042a61df3340ba1f528646b16efdf3d786b18f2edb66204799996c10bea264",
+  "queries": [
+    {"id": "test", "label": "AT / connection test", "command": "AT"},
+    {"id": "version", "label": "Firmware version", "command": "AT+VER", "prefix": "+VER="},
+    {"id": "address", "label": "BLE address", "command": "AT+ADDR", "prefix": "+ADDR="},
+    {"id": "name", "label": "Bluetooth name", "command": "AT+NAME", "prefix": "+NAME=", "edit": {"template": "AT+NAME={value}", "pattern": "[A-Za-z0-9 _.\\-]{1,18}", "risk": "medium", "hint": "Reference command, not physically tested on this hardware."}},
+    {"id": "baud", "label": "UART baud index", "command": "AT+BAUD", "prefix": "+BAUD=", "edit": {"template": "AT+BAUD={value}", "pattern": "[1-5]", "risk": "high", "power_cycle": true, "choices": {"1": "9600", "2": "19200", "3": "38400", "4": "57600", "5": "115200"}, "hint": "Reference command; power-cycle after changes."}},
+    {"id": "service", "label": "Service UUID", "command": "AT+SERV", "prefix": "+SERV="},
+    {"id": "notify", "label": "Notify UUID", "command": "AT+NOTI", "prefix": "+NOTI="},
+    {"id": "write_uuid", "label": "Write UUID", "command": "AT+WRIT", "prefix": "+WRIT="},
+    {"id": "wait", "label": "Channel wait", "command": "AT+WAIT", "prefix": "+WAIT="}
+  ],
+  "factory_reset": null
+}
