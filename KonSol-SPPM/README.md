@@ -22,7 +22,7 @@
 
 [GitHub Actions: Build KonSol-SPPM Android APK](https://github.com/AIDevelopersMonster/Bluetooth/actions/workflows/konsol-sppm-android.yml).
 
-Откройте последний **успешный** запуск для v0.1.1. В разделе **Artifacts** скачайте `KonSol-SPPM-v0.1.1-Android7-debug-apk`, распакуйте ZIP и перенесите `app-debug.apk` на телефон. Установите APK через файловый менеджер, разрешив установку приложений из этого источника, если Android об этом попросит. *Название артефакта (ZIP) не равно размеру самого APK.*
+**Проверено: сборка #9 PASS** ([GitHub Actions #9](https://github.com/AIDevelopersMonster/Bluetooth/actions/runs/38185476622), commit `5c4946b`). Компиляция, девять тестов кодека, наличие `classes.dex` и значение `sdkVersion:'24'` в фактически собранном APK подтверждены по журналу CI. Скачайте [артефакт Android 7](https://github.com/AIDevelopersMonster/Bluetooth/actions/runs/38185476622/artifacts/11718759592) под именем `KonSol-SPPM-v0.1.1-Android7-debug-apk`, **распакуйте ZIP** и перенесите содержащийся внутри `app-debug.apk` на телефон. Установите APK через файловый менеджер, разрешив установку приложений из этого источника, если Android об этом попросит. *Название артефакта (ZIP) не равно размеру самого APK.*
 
 CI обязан: (1) скомпилировать классы кодека и пройти 9 JVM-проверок, (2) собрать APK, (3) подтвердить наличие `classes.dex`, (4) распечатать `aapt dump badging` и проверить `sdkVersion: 24`, (5) выгрузить отладочный APK. До зелёного CI и реального теста на телефоне нельзя утверждать, что эта версия работоспособна в аппаратном обмене.
 
