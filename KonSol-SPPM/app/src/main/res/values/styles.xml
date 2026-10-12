@@ -8,4 +8,17 @@
         <item name="android:colorAccent">#4CB3FF</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
+
+    <!-- FR-05: four weighted columns; captions ellipsize, never overlap. -->
+    <style name="MacroButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:paddingLeft">2dp</item>
+        <item name="android:paddingRight">2dp</item>
+    </style>
 </resources>

@@ -1,58 +1,234 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
- android:layout_width="match_parent" android:layout_height="match_parent"
- android:orientation="vertical" android:padding="12dp" android:background="#0D1724">
- <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-  android:text="KonSol-SPPM" android:textSize="25sp" android:textStyle="bold" android:textColor="#F4FAFF"/>
- <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-  android:text="Bluetooth Classic SPP • Mobile UART Console"
-  android:textColor="#86AFC6" android:textSize="12sp" android:layout_marginBottom="10dp"/>
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-  <Spinner android:id="@+id/deviceSpinner" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"/>
-  <Button android:id="@+id/refreshButton" android:layout_width="wrap_content" android:layout_height="48dp" android:text="СПИСОК"/>
- </LinearLayout>
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-  <Button android:id="@+id/settingsButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Bluetooth: пара"/>
-  <Button android:id="@+id/connectButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="CONNECT"/>
- </LinearLayout>
- <TextView android:id="@+id/statusView" android:layout_width="match_parent" android:layout_height="wrap_content"
-  android:text="● Отключено" android:textSize="13sp" android:textColor="#FFBF69" android:padding="5dp"/>
- <ScrollView android:id="@+id/logScroll" android:layout_width="match_parent" android:layout_height="0dp"
-  android:layout_weight="1" android:layout_marginTop="7dp" android:layout_marginBottom="7dp"
-  android:padding="9dp" android:fillViewport="true" android:background="#07111B">
-  <TextView android:id="@+id/logView" android:layout_width="match_parent" android:layout_height="wrap_content"
-   android:fontFamily="monospace" android:textColor="#BEE7D0" android:textSize="12sp"
-   android:lineSpacingExtra="3dp" android:textIsSelectable="true"/>
- </ScrollView>
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-  <Spinner android:id="@+id/modeSpinner" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1"/>
-  <Spinner android:id="@+id/eolSpinner" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1"/>
-  <Button android:id="@+id/clearButton" android:layout_width="wrap_content" android:layout_height="44dp" android:text="CLEAR"/>
-  <Button android:id="@+id/shareButton" android:layout_width="wrap_content" android:layout_height="44dp" android:text="SHARE"/>
- </LinearLayout>
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-  <EditText android:id="@+id/inputEdit" android:layout_width="0dp" android:layout_height="wrap_content"
-   android:layout_weight="1" android:minHeight="48dp" android:singleLine="true"
-   android:inputType="textNoSuggestions" android:textColor="#FFFFFF" android:textColorHint="#7694A4"
-   android:hint="Команда / HEX-байты"/>
-  <Button android:id="@+id/sendButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="SEND"/>
- </LinearLayout>
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-  <Button android:id="@+id/macro1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M1"/>
-  <Button android:id="@+id/macro2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M2"/>
-  <Button android:id="@+id/macro3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M3"/>
-  <Button android:id="@+id/macro4" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M4"/>
- </LinearLayout>
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-  <Button android:id="@+id/macro5" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M5"/>
-  <Button android:id="@+id/macro6" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M6"/>
-  <Button android:id="@+id/macro7" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M7"/>
-  <Button android:id="@+id/macro8" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M8"/>
- </LinearLayout>
- <Button android:id="@+id/configureMacrosButton" android:layout_width="match_parent" android:layout_height="wrap_content"
-  android:text="НАСТРОИТЬ КОМАНДНЫЕ КНОПКИ"/>
- <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-  android:text="Приём RX — в области журнала; ввод и SEND — ниже. Удержание кнопки открывает редактор."
+<!--
+  KonSol-SPPM main screen (FR-05). Designed for 320-400 dp phone widths and
+  enlarged system fonts: every control keeps >=44 dp touch height, macro rows
+  use weighted columns so captions shrink instead of overlapping neighbours.
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootScroll"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#0D1724">
 
-  android:textColor="#86AFC6" android:textSize="10sp"/>
-</LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- 1. App name + connection state -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="KonSol-SPPM"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#F4FAFF" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Bluetooth Classic SPP • универсальный терминал"
+            android:textColor="#86AFC6"
+            android:textSize="12sp"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/statusView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="● Отключено"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#FFBF69"
+            android:padding="4dp" />
+
+        <!-- 2. Paired device selection + CONNECT/DISCONNECT -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Spinner
+                android:id="@+id/deviceSpinner"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/refreshButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:minWidth="0dp"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:textSize="12sp"
+                android:text="СПИСОК" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/settingsButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minHeight="48dp"
+                android:textSize="12sp"
+                android:text="Bluetooth: пара" />
+
+            <Button
+                android:id="@+id/connectButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minHeight="48dp"
+                android:text="CONNECT" />
+        </LinearLayout>
+
+        <!-- 3. TX/RX journal area -->
+        <ScrollView
+            android:id="@+id/logScroll"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:minHeight="140dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="6dp"
+            android:padding="8dp"
+            android:fillViewport="true"
+            android:background="#07111B">
+
+            <TextView
+                android:id="@+id/logView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="#BEE7D0"
+                android:textSize="12sp"
+                android:lineSpacingExtra="3dp"
+                android:textIsSelectable="true" />
+        </ScrollView>
+
+        <!-- Journal controls: RX view mode + clear/export -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Spinner
+                android:id="@+id/rxViewSpinner"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/clearButton"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:minWidth="0dp"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:textSize="12sp"
+                android:text="CLEAR" />
+
+            <Button
+                android:id="@+id/shareButton"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:minWidth="0dp"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:textSize="12sp"
+                android:text="EXPORT" />
+        </LinearLayout>
+
+        <!-- 5. TEXT/HEX switch + line ending selector -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Spinner
+                android:id="@+id/modeSpinner"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1" />
+
+            <Spinner
+                android:id="@+id/eolSpinner"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <!-- 4. Manual input + SEND -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/inputEdit"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minHeight="48dp"
+                android:singleLine="true"
+                android:inputType="textNoSuggestions"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#7694A4"
+                android:hint="Команда / HEX-байты" />
+
+            <Button
+                android:id="@+id/sendButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="SEND" />
+        </LinearLayout>
+
+        <!-- 6. Eight programmable buttons M1-M8 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button android:id="@+id/macro1" style="@style/MacroButton" android:text="M1" />
+            <Button android:id="@+id/macro2" style="@style/MacroButton" android:text="M2" />
+            <Button android:id="@+id/macro3" style="@style/MacroButton" android:text="M3" />
+            <Button android:id="@+id/macro4" style="@style/MacroButton" android:text="M4" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button android:id="@+id/macro5" style="@style/MacroButton" android:text="M5" />
+            <Button android:id="@+id/macro6" style="@style/MacroButton" android:text="M6" />
+            <Button android:id="@+id/macro7" style="@style/MacroButton" android:text="M7" />
+            <Button android:id="@+id/macro8" style="@style/MacroButton" android:text="M8" />
+        </LinearLayout>
+
+        <!-- 7. Macro configuration access -->
+        <Button
+            android:id="@+id/configureMacrosButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:textSize="13sp"
+            android:text="НАСТРОИТЬ КОМАНДНЫЕ КНОПКИ" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Нажатие свободной кнопки — редактор; назначенной — отправка; удержание — настройка."
+            android:textColor="#86AFC6"
+            android:textSize="11sp" />
+    </LinearLayout>
+</ScrollView>
