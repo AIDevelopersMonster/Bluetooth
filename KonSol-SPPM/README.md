@@ -1,14 +1,14 @@
 # KonSol-SPPM — мобильный терминал и пульт Bluetooth Classic SPP
 
-**v0.1.1 · Android 7.0+ (API 24–...) · Java · Bluetooth Classic SPP/RFCOMM.**
+**v0.1.2 (контрольная сборка по App17) · Android 6.0+ (API 23) · Java · Bluetooth Classic SPP/RFCOMM.**
 
 ## Совместимость
 
-- **Android 7.0 (API 24)** и **7.1 (API 25)** поддерживаются (в Gradle `minSdk 24`).
+- **Android 7.0 (API 24)** и **7.1 (API 25)** входят в диапазон новой сборки (`minSdk 23`, Android 6.0+).
 - Требуется именно **Bluetooth Classic SPP** с сопряжённым устройством. BLE GATT здесь не реализован.
 - Android 7 использует системное разрешение `BLUETOOTH`; на Android 12+ приложение запрашивает `BLUETOOTH_CONNECT`.
 - Нет сетевого доступа, рекламы и сторонних зависимостей в APK. Отладочный APK создаётся через GitHub Actions.
-- **Старый артефакт** `KonSol-SPPM-v0.1-debug-apk` из запусков #7/#8 имел `minSdk 26` и **не устанавливается на Android 7**. Для тестового телефона используйте только **`KonSol-SPPM-v0.1.1-Android7-debug-apk`** из успешной новой сборки.
+- **Старый артефакт** из запусков #7/#8 требовал Android 8 (`minSdk 26`) и несовместим с Android 7. v0.1.1 (#9) уже имела корректный `minSdk 24`, но её установка через MIUI на Redmi 5 Plus **BLOCKED**: `INSTALL_FAILED_USER_RESTRICTED`; при установке с телефона в журнале наблюдались VerifyApps/Finsky и fatal Android Runtime, без полного стека. **Это не доказательство дефекта APK**. Новая v0.1.2 — один контролируемый вариант по сборочной конфигурации физически проверенного App17, без изменений SPP-функциональности.
 
 ## Функции
 
@@ -22,11 +22,11 @@
 
 [GitHub Actions: Build KonSol-SPPM Android APK](https://github.com/AIDevelopersMonster/Bluetooth/actions/workflows/konsol-sppm-android.yml).
 
-**Проверено: сборка #9 PASS** ([GitHub Actions #9](https://github.com/AIDevelopersMonster/Bluetooth/actions/runs/38185476622), commit `5c4946b`). Компиляция, девять тестов кодека, наличие `classes.dex` и значение `sdkVersion:'24'` в фактически собранном APK подтверждены по журналу CI. Скачайте [артефакт Android 7](https://github.com/AIDevelopersMonster/Bluetooth/actions/runs/38185476622/artifacts/11718759592) под именем `KonSol-SPPM-v0.1.1-Android7-debug-apk`, **распакуйте ZIP** и перенесите содержащийся внутри `app-debug.apk` на телефон. Установите APK через файловый менеджер, разрешив установку приложений из этого источника, если Android об этом попросит. *Название артефакта (ZIP) не равно размеру самого APK.*
+**Предыдущая сборка v0.1.1: #9 PASS** ([GitHub Actions #9](https://github.com/AIDevelopersMonster/Bluetooth/actions/runs/38185476622), commit `5c4946b`). Компиляция, девять тестов кодека, наличие `classes.dex` и значение `sdkVersion:'24'` в фактически собранном APK подтверждены по журналу CI. Новая v0.1.2: в [GitHub Actions](https://github.com/AIDevelopersMonster/Bluetooth/actions/workflows/konsol-sppm-android.yml) после подтверждённого **success** используйте артефакт `KonSol-SPPM-v0.1.2-App17Toolchain-Android7-debug-apk`. Распакуйте ZIP, чтобы получить `app-debug.apk`; установка на конкретный Android должна быть проверена отдельно. Если установщик MIUI снова зависнет, повторную диагностику устройства не проводить: тест версии 0.1.2 закрыть как `INSTALL BLOCKED`.
 
-CI обязан: (1) скомпилировать классы кодека и пройти 9 JVM-проверок, (2) собрать APK, (3) подтвердить наличие `classes.dex`, (4) распечатать `aapt dump badging` и проверить `sdkVersion: 24`, (5) выгрузить отладочный APK. До зелёного CI и реального теста на телефоне нельзя утверждать, что эта версия работоспособна в аппаратном обмене.
+CI обязан: (1) скомпилировать классы кодека и пройти 9 JVM-проверок, (2) собрать APK, (3) подтвердить наличие `classes.dex`, (4) распечатать `aapt dump badging`, проверить `sdkVersion: 23`, подписи `apksigner` и ZIP-выравнивание, (5) выгрузить отладочный APK. До зелёного CI и реального теста на телефоне нельзя утверждать, что эта версия работоспособна в аппаратном обмене.
 
-Локально: Android Gradle Plugin 8.9.2, Gradle 8.11.1, JDK 17, Android SDK 35, задача `:app:assembleDebug`.
+Локально: Android Gradle Plugin 8.7.3, Gradle 8.9, JDK 17, Android SDK 35, задача `:app:assembleDebug`.
 
 ## Быстрый тест
 
@@ -35,3 +35,7 @@ CI обязан: (1) скомпилировать классы кодека и �
 ## Ограничения
 
 Версия работает на переднем плане, не является Bluetooth BLE GATT клиентом. Новых несопряжённых устройств не ищет. Передача split UTF-8 последовательностей через несколько приёмов может отображаться с символами замены; в HEX режиме байты сохраняются корректно. Проверка реального SPP обмена и интерфейса на Android 7 — отдельный аппаратный тест.
+
+## Контрольный образец App17
+
+[App17 из ESP32-8048S043-lab](https://github.com/AIDevelopersMonster/ESP32-8048S043-lab/tree/main/apps/17_MobileControl) — **PHYSICAL MVP PASS** на том же Redmi 5 Plus, Android 7.1.2. 12.10.2026 повторно подтверждён успешный запуск уже установленного App17 через `adb shell am start -n ru.kontakts.mobile/.MainActivity` (пользователь подтвердил интерфейс). Это подтверждает успешный **запуск уже установленного приложения**, а не способность MIUI устанавливать новые APK в текущем состоянии. App17 использует AGP 8.7.3 / Gradle 8.9 / `minSdk 23` / `targetSdk 35`; эти параметры взяты для однократного сравнительного эксперимента v0.1.2. Переписывание SPP-клиента на Kotlin и изменение протокола не требуется.

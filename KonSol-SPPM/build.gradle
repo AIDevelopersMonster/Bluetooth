@@ -1,3 +1,4 @@
 plugins {
-    id 'com.android.application' version '8.9.2' apply false
+    // The same Android Gradle Plugin line as the physically verified App17.
+    id 'com.android.application' version '8.7.3' apply false
 }

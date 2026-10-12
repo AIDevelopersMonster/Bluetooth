@@ -26,10 +26,10 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: ''
-      - name: Gradle 8.11.1
+      - name: Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.11.1'
+          gradle-version: '8.9'
       - name: Install Android platform
         run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
       - name: Test TEXT/HEX and programmable button codec
@@ -54,14 +54,16 @@ jobs:
           test -x "$aapt"
           "$aapt" dump badging "$apk" | grep -E "^(package:|sdkVersion:|targetSdkVersion:)"
           min_sdk=$("$aapt" dump badging "$apk" | sed -n "s/^sdkVersion:'\\([0-9]*\\)'.*/\\1/p")
-          test "$min_sdk" = '24'
+          test "$min_sdk" = '23'
           echo "PASS: APK contains executable DEX and supports Android 7.0 (API 24)"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
           sha256sum "$apk"
           ls -lh "$apk"
       - name: Upload installable debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: KonSol-SPPM-v0.1.1-Android7-debug-apk
+          name: KonSol-SPPM-v0.1.2-App17Toolchain-Android7-debug-apk
           path: KonSol-SPPM/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
