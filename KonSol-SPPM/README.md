@@ -1,27 +1,36 @@
-# KonSol-SPPM — Bluetooth Classic SPP Mobile Terminal
+# KonSol-SPPM — Bluetooth Classic SPP Universal Android Terminal
 
-**Version:** v0.1.2 (prototype) · Android 6.0+ (API 23) · Java · RFCOMM/SPP.
+**Version:** v0.1.3 (MVP build) · Android 6.0+ (minSdk 23, control platform Android 7.1.2 / API 25) · Java · RFCOMM/SPP · targetSdk/compileSdk 35.
 
-KonSol-SPPM is an **equipment-independent** mobile terminal for development, setup and testing of UART-connected devices over Bluetooth Classic SPP. Commands and button labels are configured in the mobile UI. It is not embedded firmware and does not implement a specific equipment protocol.
+KonSol-SPPM is an **equipment-independent** mobile terminal for development, setup and on-site debugging of UART-connected devices over Bluetooth Classic Serial Port Profile. Commands, button labels, formats and line endings are configured by the user directly on the phone. It is not embedded firmware, not a control system, and implements no fixed equipment protocol. No server, internet, cloud, registration or root is required.
 
-## Capabilities
+## Capabilities (MVP)
 
-- Connect/disconnect to an already paired Bluetooth Classic SPP device, RFCOMM UUID `00001101-0000-1000-8000-00805F9B34FB`.
-- Separate TX command input and scrollable, timestamped RX/TX log.
-- TEXT (UTF-8) and HEX command input, selectable None/CR/LF/CRLF line ending.
-- Eight programmable buttons M1–M8: user-defined label, TEXT or HEX payload and line ending, persisted across launches. Tap to send; long press or use **НАСТРОИТЬ КОМАНДНЫЕ КНОПКИ** to edit.
-- Share/clear the session log.
-- No cloud or network dependencies.
+- **FR-01 Connect:** list already-paired Classic Bluetooth devices, show the selected name, connect over RFCOMM with the standard SPP UUID `00001101-0000-1000-8000-00805F9B34FB`, disconnect on demand; states `DISCONNECTED / CONNECTING / CONNECTED / ERROR`; missing adapter, disabled radio, denied permission and failed connects are handled without blocking the UI (all socket I/O runs on background threads).
+- **FR-02 Manual TX:** input line + **SEND**; TEXT mode sends UTF-8 with selectable ending NONE / CR (`0D`) / LF (`0A`) / CRLF; HEX mode sends exactly the entered bytes (line ending is *not* appended — type `0D`/`0A` explicitly). Malformed HEX produces a clear error and nothing is sent. Sending while disconnected is refused with a message.
+- **FR-03 RX journal:** continuous reception; raw bytes are stored unmodified; entries carry a millisecond timestamp and separate TX/RX markers; view switches render RX as TEXT (with correct reassembly of UTF-8 characters split across consecutive RFCOMM reads) or as HEX byte-exact dump; scrollable, bounded in memory (last 2000 entries), clear button, export via the standard Android share sheet. RFCOMM read boundaries are treated as stream fragments, never as protocol message boundaries.
+- **FR-04 Eight programmable buttons M1–M8:** every slot ships **blank** — no PING/STATUS/HELP/relay commands or any other demo values are embedded in the source. Tap a blank slot → editor opens; tap an assigned slot → its command is sent; long press → editor. Per-button label, TEXT/HEX format and line ending are persisted locally. Editing works without a connection; assignments survive app restarts and ordinary APK updates.
+- **FR-05 UI:** single screen: title + connection state, paired-device picker + CONNECT/DISCONNECT, TX/RX journal, manual input + SEND, TEXT/HEX and EOL selectors, M1–M8 grid, macro configuration / clear / export access. Four weighted columns with ellipsized captions keep the layout usable at 320–400 dp width and enlarged system fonts; `adjustResize` keeps the input line and SEND reachable while the soft keyboard is open.
 
-**Prototype note:** In v0.1.2, M1–M4 still contain demonstration commands `PING`, `STATUS`, `HELP`, `?`; M5–M8 are initially blank. Those defaults are not part of any fixed equipment protocol and can be changed in the UI. The desired subsequent behavior is to ship all eight slots blank.
+## Architecture
+
+| Component | Responsibility |
+|---|---|
+| `MainActivity` | UI and user actions only (main thread) |
+| `SppClient` | RFCOMM connect/disconnect, TX queue, continuous RX loop, generation tickets for safe reconnect |
+| `HexCodec` | TEXT↔bytes and HEX↔bytes conversion, hex display |
+| `MacroCommand` | one persistent user command button (pure JVM class) |
+| `SettingsRepository` | SharedPreferences persistence: M1–M8, TX mode/EOL, RX view, last device address |
+| `SessionLog` | bounded ring-buffer journal + export text (pure JVM class) |
+| `Utf8StreamDecoder` | reassembles UTF-8 characters split across socket reads (pure JVM class) |
+
+Permissions: `BLUETOOTH` (maxSdk 30) + runtime `BLUETOOTH_CONNECT` request on Android 12+; legacy model on older Android. No location, BLE scan or network permissions — the MVP lists bonded devices only.
 
 ## Build
 
-Source: `KonSol-SPPM/app/`. Android Gradle Plugin **8.7.3**, Gradle **8.9**, JDK **17**, Android SDK **35**, `minSdk 23`, `targetSdk 35`.
+Toolchain: Android Gradle Plugin **8.7.3**, Gradle **8.9**, JDK **17**, compileSdk **35**, `minSdk 23`.
 
-GitHub Actions: [Build KonSol-SPPM Android APK](https://github.com/AIDevelopersMonster/Bluetooth/actions/workflows/konsol-sppm-android.yml).
-
-Workflow `assembleDebug` produces `app-debug.apk` as an Actions artifact. Download and extract the artifact ZIP to obtain the APK. The project currently has no published stable Android release.
+CI (reproducible): workflow [`konsol-sppm-android.yml`](../.github/workflows/konsol-sppm-android.yml) runs the core regression tests, builds `:app:assembleDebug`, verifies DEX/signature/alignment, prints SHA-256 and uploads the installable APK artifact.
 
 Local build from `KonSol-SPPM`:
 
@@ -29,7 +38,7 @@ Local build from `KonSol-SPPM`:
 gradle --no-daemon :app:assembleDebug
 ```
 
-Unit tests for TEXT/HEX command encoding and programmable button payloads:
+Core unit tests (JDK only, no Android SDK needed):
 
 ```powershell
 .\tools\test-core.ps1
@@ -37,11 +46,11 @@ Unit tests for TEXT/HEX command encoding and programmable button payloads:
 
 ## Use
 
-Pair a Classic Bluetooth SPP device in Android Bluetooth settings, open KonSol-SPPM, select it from the paired-device list and press **CONNECT**. Enter commands using SEND or assign your own button commands in the UI. The selected protocol and line endings must match the equipment connected to the Bluetooth-UART module.
+Pair the Classic Bluetooth SPP device once in Android Bluetooth settings, open KonSol-SPPM, pick it from the list and press **CONNECT**. Send commands manually (TEXT/HEX + ending) or assign your own commands to M1–M8 (long press or «НАСТРОИТЬ КОМАНДНЫЕ КНОПКИ»). The chosen byte format and line endings must match the equipment behind the Bluetooth-UART bridge; the app transmits exactly what is configured.
 
-## Scope and validation
+## Scope and validation status
 
-- Classic Bluetooth SPP only; **not BLE GATT**.
-- Foreground terminal; only paired devices listed.
-- Android build/packaging validation is available in GitHub Actions. **No completed physical SPP acceptance test of KonSol-SPPM is claimed.**
-- Device-specific installation logs, transient ADB/MIUI incidents and unsuccessful local attempts are not part of the project documentation. Keep published lab results limited to reproducible and technically meaningful evidence.
+- Classic Bluetooth SPP only; **not BLE GATT**; foreground terminal; no auto-reconnect service.
+- 30 plain-JVM core checks pass locally and in CI (hex exactness, endings, blank slots, journal bound, split-UTF-8 reassembly).
+- GitHub Actions validates packaging for Android 7-class devices (API 23 minSdk verified in the APK). **Physical SPP acceptance (AT-03…AT-12) against real hardware (e.g. BT18-T) and the cross-device matrix are still to be executed on site** — a successful APK build is not proof of functional operation.
+- Device-specific installation logs and transient support incidents stay out of the published project; only reproducible, meaningful results belong here.

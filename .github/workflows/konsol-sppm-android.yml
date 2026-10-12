@@ -32,14 +32,16 @@ jobs:
           gradle-version: '8.9'
       - name: Install Android platform
         run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Test TEXT/HEX and programmable button codec
+      - name: Core regression tests (TEXT/HEX, macros, journal, UTF-8 stream)
         run: |
-          mkdir -p /tmp/konsol-codec
-          javac -encoding UTF-8 -d /tmp/konsol-codec \
+          mkdir -p /tmp/konsol-core
+          javac -encoding UTF-8 -d /tmp/konsol-core \
             KonSol-SPPM/app/src/main/java/io/github/aidevelopersmonster/konsolsppm/HexCodec.java \
             KonSol-SPPM/app/src/main/java/io/github/aidevelopersmonster/konsolsppm/MacroCommand.java \
-            KonSol-SPPM/tools/TestCodec.java
-          java -cp /tmp/konsol-codec io.github.aidevelopersmonster.konsolsppm.TestCodec
+            KonSol-SPPM/app/src/main/java/io/github/aidevelopersmonster/konsolsppm/SessionLog.java \
+            KonSol-SPPM/app/src/main/java/io/github/aidevelopersmonster/konsolsppm/Utf8StreamDecoder.java \
+            KonSol-SPPM/tools/TestCore.java
+          java -cp /tmp/konsol-core io.github.aidevelopersmonster.konsolsppm.TestCore
       - name: Build debug APK
         working-directory: KonSol-SPPM
         run: gradle --no-daemon --stacktrace :app:assembleDebug
@@ -63,7 +65,7 @@ jobs:
       - name: Upload installable debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: KonSol-SPPM-v0.1.2-App17Toolchain-Android7-debug-apk
+          name: KonSol-SPPM-v0.1.3-Android7-debug-apk
           path: KonSol-SPPM/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
