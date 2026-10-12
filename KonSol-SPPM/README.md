@@ -1,41 +1,47 @@
-# KonSol-SPPM — мобильный терминал и пульт Bluetooth Classic SPP
+# KonSol-SPPM — Bluetooth Classic SPP Mobile Terminal
 
-**v0.1.2 (контрольная сборка по App17) · Android 6.0+ (API 23) · Java · Bluetooth Classic SPP/RFCOMM.**
+**Version:** v0.1.2 (prototype) · Android 6.0+ (API 23) · Java · RFCOMM/SPP.
 
-## Совместимость
+KonSol-SPPM is an **equipment-independent** mobile terminal for development, setup and testing of UART-connected devices over Bluetooth Classic SPP. Commands and button labels are configured in the mobile UI. It is not embedded firmware and does not implement a specific equipment protocol.
 
-- **Android 7.0 (API 24)** и **7.1 (API 25)** входят в диапазон новой сборки (`minSdk 23`, Android 6.0+).
-- Требуется именно **Bluetooth Classic SPP** с сопряжённым устройством. BLE GATT здесь не реализован.
-- Android 7 использует системное разрешение `BLUETOOTH`; на Android 12+ приложение запрашивает `BLUETOOTH_CONNECT`.
-- Нет сетевого доступа, рекламы и сторонних зависимостей в APK. Отладочный APK создаётся через GitHub Actions.
-- **Старый артефакт** из запусков #7/#8 требовал Android 8 (`minSdk 26`) и несовместим с Android 7. v0.1.1 (#9) уже имела корректный `minSdk 24`, но её установка через MIUI на Redmi 5 Plus **BLOCKED**: `INSTALL_FAILED_USER_RESTRICTED`; при установке с телефона в журнале наблюдались VerifyApps/Finsky и fatal Android Runtime, без полного стека. **Это не доказательство дефекта APK**. Новая v0.1.2 — один контролируемый вариант по сборочной конфигурации физически проверенного App17, без изменений SPP-функциональности.
+## Capabilities
 
-## Функции
+- Connect/disconnect to an already paired Bluetooth Classic SPP device, RFCOMM UUID `00001101-0000-1000-8000-00805F9B34FB`.
+- Separate TX command input and scrollable, timestamped RX/TX log.
+- TEXT (UTF-8) and HEX command input, selectable None/CR/LF/CRLF line ending.
+- Eight programmable buttons M1–M8: user-defined label, TEXT or HEX payload and line ending, persisted across launches. Tap to send; long press or use **НАСТРОИТЬ КОМАНДНЫЕ КНОПКИ** to edit.
+- Share/clear the session log.
+- No cloud or network dependencies.
 
-- Выбор **уже сопряжённого** устройства, подключение/отключение SPP по стандартному UUID `00001101-0000-1000-8000-00805F9B34FB`.
-- Область приёма RX и журнал TX/RX с временем и числом байтов, очистка и экспорт журнала.
-- Отдельная строка команды и кнопка **SEND**. Режимы **TEXT UTF-8** и **HEX**, окончания строки None / CR / LF / CRLF.
-- **Восемь назначаемых кнопок M1–M8** с отдельными названием, командой, режимом TEXT/HEX и окончанием строки. Настройки сохраняются на телефоне. Долгое нажатие или кнопка **«НАСТРОИТЬ КОМАНДНЫЕ КНОПКИ»** открывают редактор.
-- M1–M4 имеют демонстрационные значения PING/STATUS/HELP/? (их надо заменить командами реального устройства); M5–M8 не назначены.
+**Prototype note:** In v0.1.2, M1–M4 still contain demonstration commands `PING`, `STATUS`, `HELP`, `?`; M5–M8 are initially blank. Those defaults are not part of any fixed equipment protocol and can be changed in the UI. The desired subsequent behavior is to ship all eight slots blank.
 
-## Сборка и скачивание
+## Build
 
-[GitHub Actions: Build KonSol-SPPM Android APK](https://github.com/AIDevelopersMonster/Bluetooth/actions/workflows/konsol-sppm-android.yml).
+Source: `KonSol-SPPM/app/`. Android Gradle Plugin **8.7.3**, Gradle **8.9**, JDK **17**, Android SDK **35**, `minSdk 23`, `targetSdk 35`.
 
-**Предыдущая сборка v0.1.1: #9 PASS** ([GitHub Actions #9](https://github.com/AIDevelopersMonster/Bluetooth/actions/runs/38185476622), commit `5c4946b`). Компиляция, девять тестов кодека, наличие `classes.dex` и значение `sdkVersion:'24'` в фактически собранном APK подтверждены по журналу CI. Новая v0.1.2: в [GitHub Actions](https://github.com/AIDevelopersMonster/Bluetooth/actions/workflows/konsol-sppm-android.yml) после подтверждённого **success** используйте артефакт `KonSol-SPPM-v0.1.2-App17Toolchain-Android7-debug-apk`. Распакуйте ZIP, чтобы получить `app-debug.apk`; установка на конкретный Android должна быть проверена отдельно. Если установщик MIUI снова зависнет, повторную диагностику устройства не проводить: тест версии 0.1.2 закрыть как `INSTALL BLOCKED`.
+GitHub Actions: [Build KonSol-SPPM Android APK](https://github.com/AIDevelopersMonster/Bluetooth/actions/workflows/konsol-sppm-android.yml).
 
-CI обязан: (1) скомпилировать классы кодека и пройти 9 JVM-проверок, (2) собрать APK, (3) подтвердить наличие `classes.dex`, (4) распечатать `aapt dump badging`, проверить `sdkVersion: 23`, подписи `apksigner` и ZIP-выравнивание, (5) выгрузить отладочный APK. До зелёного CI и реального теста на телефоне нельзя утверждать, что эта версия работоспособна в аппаратном обмене.
+Workflow `assembleDebug` produces `app-debug.apk` as an Actions artifact. Download and extract the artifact ZIP to obtain the APK. The project currently has no published stable Android release.
 
-Локально: Android Gradle Plugin 8.7.3, Gradle 8.9, JDK 17, Android SDK 35, задача `:app:assembleDebug`.
+Local build from `KonSol-SPPM`:
 
-## Быстрый тест
+```powershell
+gradle --no-daemon :app:assembleDebug
+```
 
-Сопрягите `BT18-T` через системные настройки **Bluetooth Classic** телефона (PIN `1234` был прочитан на одном экземпляре, но не гарантируется для всех). Откройте приложение, нажмите **СПИСОК**, выберите нужный модуль по адресу, затем **CONNECT**. Отправьте текстовую команду через SEND или назначенную кнопку; проверьте, что реальные байты дошли до UART этого **же** физического модуля. BLE обнаружение и постоянное свечение светодиода сами по себе не подтверждают Classic SPP.
+Unit tests for TEXT/HEX command encoding and programmable button payloads:
 
-## Ограничения
+```powershell
+.\tools\test-core.ps1
+```
 
-Версия работает на переднем плане, не является Bluetooth BLE GATT клиентом. Новых несопряжённых устройств не ищет. Передача split UTF-8 последовательностей через несколько приёмов может отображаться с символами замены; в HEX режиме байты сохраняются корректно. Проверка реального SPP обмена и интерфейса на Android 7 — отдельный аппаратный тест.
+## Use
 
-## Контрольный образец App17
+Pair a Classic Bluetooth SPP device in Android Bluetooth settings, open KonSol-SPPM, select it from the paired-device list and press **CONNECT**. Enter commands using SEND or assign your own button commands in the UI. The selected protocol and line endings must match the equipment connected to the Bluetooth-UART module.
 
-[App17 из ESP32-8048S043-lab](https://github.com/AIDevelopersMonster/ESP32-8048S043-lab/tree/main/apps/17_MobileControl) — **PHYSICAL MVP PASS** на том же Redmi 5 Plus, Android 7.1.2. 12.10.2026 повторно подтверждён успешный запуск уже установленного App17 через `adb shell am start -n ru.kontakts.mobile/.MainActivity` (пользователь подтвердил интерфейс). Это подтверждает успешный **запуск уже установленного приложения**, а не способность MIUI устанавливать новые APK в текущем состоянии. App17 использует AGP 8.7.3 / Gradle 8.9 / `minSdk 23` / `targetSdk 35`; эти параметры взяты для однократного сравнительного эксперимента v0.1.2. Переписывание SPP-клиента на Kotlin и изменение протокола не требуется.
+## Scope and validation
+
+- Classic Bluetooth SPP only; **not BLE GATT**.
+- Foreground terminal; only paired devices listed.
+- Android build/packaging validation is available in GitHub Actions. **No completed physical SPP acceptance test of KonSol-SPPM is claimed.**
+- Device-specific installation logs, transient ADB/MIUI incidents and unsuccessful local attempts are not part of the project documentation. Keep published lab results limited to reproducible and technically meaningful evidence.
