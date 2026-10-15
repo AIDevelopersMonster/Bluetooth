@@ -631,6 +631,8 @@ class ATStudio:
                         messagebox.showwarning("Unverified write", "Module replied OK, but readback did not match. Read the settings before proceeding.")
                 elif kind == "snapshot":
                     self.log_line("Local snapshot: " + data["path"])
+                    if data.get("record"):
+                        self.log_line("SAVED SQLite snapshot #{}: {}".format(data["record"]["id"], data["result"]))
                 elif kind == "inspection":
                     item = data["record"]
                     self.log_line("REGISTERED: #{} {} {} MAC={} scope={} (acceptance NOT EVALUATED)".format(
