@@ -26,11 +26,11 @@ class ProfileTests(unittest.TestCase):
         p = parse_profile(BASE / "modules" / "jdy31")
         self.assertEqual([q["command"] for q in p.queries if not q.get("probe_only")],
                          ["AT+VERSION", "AT+LADDR", "AT+NAME", "AT+BAUD", "AT+PIN"])
-        self.assertEqual(len([q for q in p.queries if q.get("probe_only")]), 11)
+        self.assertEqual(len([q for q in p.queries if q.get("probe_only")]), 0)
         self.assertEqual(p.baud, 9600)
         self.assertEqual(p.ending, b"\r\n")
-        self.assertFalse(p.verified_reads)
-        self.assertFalse(p.setters)
+        self.assertTrue(p.verified_reads)
+        self.assertEqual(len(p.setters), 3)
         self.assertIsNone(p.factory_reset)
 
     def test_queries_match_physical_at_read_set(self):
