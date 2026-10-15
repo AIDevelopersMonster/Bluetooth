@@ -32,7 +32,10 @@
         "risk": "medium",
         "require_version_prefix": "JDY-31A-V2.241,",
         "hint": "JDY-31 syntax: AT+NAME followed immediately by a 1..18 byte ASCII name (no equals sign). After write, verify by AT+NAME; reconnect or power-cycle if the phone caches the old advertisement."
-      }
+      },
+      "unknown_values": [
+        "?"
+      ]
     },
     {
       "id": "baud",
