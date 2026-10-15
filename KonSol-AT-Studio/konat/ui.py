@@ -125,6 +125,9 @@ class SerialWorker(threading.Thread):
         if outcome["mac"] is None:
             raise RuntimeError("Inspection was NOT saved: no complete module-reported MAC. "
                                "Review the AT address reply and retry.")
+        if outcome["result"] != "PASS":
+            self.emit("log", message="NOT REGISTERED: validation did not pass")
+            return
         record = add_inspection(
             mac=outcome["mac"], identity_source=profile.by_id("address")["command"],
             profile=profile.key, test_code="AT_READ_ALL_V1", result=outcome["result"],
@@ -224,20 +227,6 @@ class SerialWorker(threading.Thread):
                             if not ack_ok:
                                 raise RuntimeError("Write was not acknowledged with OK. State is UNKNOWN; read again before retrying")
                             if query["edit"].get("power_cycle") and profile.key == "jdy31":
-                                started = timestamp_utc()
-                                recorded = add_inspection(
-                                    mac=mac, identity_source=address_command,
-                                    profile=profile.key, test_code="AT_WRITE_PENDING_RESTART_V1",
-                                    result="INCOMPLETE", tested_on=started[:10],
-                                    tested_at_utc=started, evidence_source="live_uart",
-                                    evidence_ref="KonSol AT Studio: acknowledged write, verification pending",
-                                    board=profile.title, port=self.port.port,
-                                    baud=self.port.baudrate, db_path=self.db_path,
-                                    payload={"qid": query["id"], "old": old, "new": value,
-                                             "ack_received": True,
-                                             "scope": "Post-restart setting and persistence NOT verified"})
-                                self.emit("inspection", record=recorded,
-                                          test_code="AT_WRITE_PENDING_RESTART_V1")
                                 self.emit("change", profile=profile.key, qid=query["id"],
                                           status="pending_power_cycle", old=old, new=value,
                                           power_cycle=True)
@@ -245,9 +234,7 @@ class SerialWorker(threading.Thread):
                             actual_reply = self._query(profile, query)
                             actual = response_value(actual_reply, query.get("prefix", ""))
                             success = actual == value
-                            self._write_record(profile, query, mac, address_command,
-                                               old, value, actual, ack,
-                                               "verified" if success else "unverified")
+                            # Configuration is never automatically registered.
                             self.emit("change", profile=profile.key, qid=query["id"],
                                       status="verified" if success else "unverified",
                                       old=old, new=value, actual=actual,
@@ -264,10 +251,7 @@ class SerialWorker(threading.Thread):
                                 actual = response_value(reply, version.get("prefix", ""))
                                 if not actual or not actual.startswith(signature):
                                     raise RuntimeError("Firmware mismatch: device control NOT SENT")
-                            if action == "factory":
-                                _, complete = self._snapshot(profile)
-                                if not complete:
-                                    raise RuntimeError("Pre-reset snapshot incomplete: command NOT SENT")
+                            # Factory recovery is independent of configuration health or database.
                             ack = self._exchange(config["command"], profile)
                             ack_state = "+OK" if b"+OK" in ack.upper() else status_of(ack)
                             self.emit(action, status=ack_state,
@@ -334,7 +318,7 @@ class ModuleTab:
         ttk.Button(controls, text="Read selected", command=self.read_selected).pack(side="left", padx=(0, 5))
         ttk.Button(controls, text="Read core", command=lambda:self.app.action("read_all", self.profile)).pack(side="left", padx=5)
         ttk.Button(controls, text="Save snapshot JSON", command=lambda:self.app.action("snapshot", self.profile)).pack(side="left", padx=5)
-        ttk.Button(controls, text="Inspect & record", command=lambda:self.app.action("inspect", self.profile)).pack(side="left", padx=5)
+        ttk.Button(controls, text="Register checked module", command=self.register_checked).pack(side="left", padx=5)
 
         right = ttk.Frame(f)
         right.grid(row=1, column=1, sticky="nsew", padx=(5, 10), pady=4)
@@ -380,6 +364,11 @@ class ModuleTab:
                            command=self.app.factory_reset).pack(anchor="w", pady=3)
                 ttk.Label(device, text="Current configuration is saved before restoring. Confirm twice.",
                           wraplength=570).pack(anchor="w", pady=3)
+
+    def register_checked(self):
+        if not messagebox.askyesno("Register supplied module", "Add this module to the accepted stock only if a fresh full check passes?"):
+            return
+        self.app.action("inspect", self.profile)
 
     def read_selected(self):
         selection = self.tree.selection()
@@ -582,7 +571,7 @@ class ATStudio:
             return
         if not messagebox.askyesno("DANGER: factory settings", "This changes the MODULE, not just the GUI.\n"
                                    "Bluetooth pairing, UART speed and other configuration may be lost.\n"
-                                   "A local snapshot will be saved first. Proceed?", icon="warning"):
+                                   "No database entry will be created. Proceed?", icon="warning"):
             return
         confirmation = simpledialog.askstring("Confirm factory reset", "Type RESET in capital letters to proceed:")
         if confirmation != "RESET":
@@ -626,8 +615,7 @@ class ATStudio:
                         messagebox.showwarning("Unverified write", "Module replied OK, but readback did not match. Read the settings before proceeding.")
                 elif kind == "snapshot":
                     self.log_line("Local snapshot: " + data["path"])
-                    if data.get("record"):
-                        self.log_line("SAVED SQLite snapshot #{}: {}".format(data["record"]["id"], data["result"]))
+
                 elif kind == "inspection":
                     item = data["record"]
                     self.log_line("REGISTERED: #{} {} {} MAC={} scope={} (acceptance NOT EVALUATED)".format(
