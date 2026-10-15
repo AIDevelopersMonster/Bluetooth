@@ -121,7 +121,7 @@ class CaptureTests(unittest.TestCase):
         }
         result = examine_queries(profile, replies)
         self.assertEqual(result["result"], "PASS")
-        self.assertEqual((result["passed"], result["total"]), (4, 4))
+        self.assertEqual((result["passed"], result["total"]), (5, 5))
         self.assertEqual(result["mac"], "02A1B2C3D4E5")
         self.assertNotIn("1234", str(result["checks"]))
 
@@ -135,13 +135,26 @@ class CaptureTests(unittest.TestCase):
             "pin": b"+PIN=1234\r\n",
         }
         result = examine_queries(profile, replies)
-        self.assertEqual(result["total"], 4)
+        self.assertEqual(result["total"], 5)
         self.assertEqual(result["passed"], 4)
-        self.assertEqual(result["result"], "PASS")
-        self.assertFalse(any(c["qid"] == "name" for c in result["checks"]))
+        self.assertEqual(result["result"], "INCOMPLETE")
         self.assertEqual(result["firmware"], "JDY-31A-V2.241,Bluetooth V3.0+BLE")
-        self.assertEqual(len([q for q in profile.queries if q.get("probe_only")]), 12)
+        self.assertEqual(len([q for q in profile.queries if q.get("probe_only")]), 11)
         self.assertNotIn("1234", str(result["checks"]))
+
+    def test_jdy31a_confirmed_name_read(self):
+        profile = next(x for x in self.profiles if x.key == "jdy31")
+        replies = {
+            "version": b"+VERSION=JDY-31A-V2.241,Bluetooth V3.0+BLE\r\n",
+            "address": b"+LADDR=02A1B2C3D4E5\r\n",
+            "name": b"+NAME=JDY-31\r\n",
+            "baud": b"+BAUD=4\r\n",
+            "pin": b"+PIN=1234\r\n",
+        }
+        result = examine_queries(profile, replies)
+        self.assertEqual((result["passed"], result["total"]), (5, 5))
+        self.assertEqual(result["result"], "PASS")
+        self.assertEqual(next(c for c in result["checks"] if c["qid"] == "name")["value"], "JDY-31")
 
     def test_timeout_is_incomplete(self):
         outcome = examine_queries(self.profile, {"address": b"+ADSS=02a1b2c3d4e5\r\nOK\r\n"})
