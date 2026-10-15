@@ -5,8 +5,8 @@
   "baud": 9600,
   "ending": "CRLF",
   "timeout_ms": 800,
-  "verified_reads": false,
-  "notes": "PHYSICAL: JDY-31A-V2.241, Classic 3.0 + BLE, UART 9600 8N1 CRLF. AT+NAME returned +NAME=? and phone now advertises '?'; CAUSATION NOT YET ESTABLISHED. AT+NAME is quarantined for a controlled one-command investigation only, NEVER sent by Read core, snapshots or inspection. 4 automatic baseline reads: VERSION, LADDR, BAUD, PIN. Other [PROBE] candidates unverified. No setters, SLEEP, RESET, DISC or DEFAULT. Breakout VCC 3.6-6V, UART 3.3V.",
+  "verified_reads": true,
+  "notes": "PHYSICALLY VERIFIED on JDY-31A-V2.241 (2026-10-15): Classic 3.0 + BLE, UART 9600 8N1 CRLF. Five read queries (VERSION, LADDR, NAME, BAUD, PIN) returned values. AT+NAME returned +NAME=JDY-31 after operator renamed the device; an earlier +NAME=? coincided with the name shown on the phone. The origin of '?' is UNKNOWN; no evidence that AT+NAME caused it. Eleven [PROBE] commands from related-module documentation remain unverified and excluded from automatic reads, snapshots, and inspection. All writes/reset disabled. Breakout VCC 3.6-6V, UART 3.3V.",
   "reference": "https://fccid.io/2AXM8-JDY-33/User-Manual/15-JDY-33-UserMan-US-r2-4936883.pdf",
   "queries": [
     {
@@ -23,13 +23,9 @@
     },
     {
       "id": "name",
-      "label": "[CAUTION] Bluetooth name",
+      "label": "Bluetooth name",
       "command": "AT+NAME",
-      "prefix": "+NAME=",
-      "unknown_values": [
-        "?"
-      ],
-      "probe_only": true
+      "prefix": "+NAME="
     },
     {
       "id": "baud",
