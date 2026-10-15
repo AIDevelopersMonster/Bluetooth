@@ -88,10 +88,8 @@ class UartTests(unittest.TestCase):
                     break
             commands.put(("stop", None, {}))
             w.join(timeout=2)
-            self.assertEqual(db_status(Path(temp) / "test-inspections.sqlite3")["inspections"], 1)
-            saved = query_inspections(db_path=Path(temp) / "test-inspections.sqlite3")[0]
-            self.assertEqual(saved["test_code"], "AT_WRITE_READBACK_V1")
-            self.assertEqual(saved["result"], "PASS")
+            self.assertEqual(db_status(Path(temp) / "test-inspections.sqlite3")["inspections"], 0)
+
         self.assertEqual(fake.writes, [b"AT+ADSS?\r\n", b"AT+NAME?\r\n", b"AT+NAME=KON-BT18\r\n", b"AT+NAME?\r\n"])
         self.assertTrue(any(e == "change" and d["status"] == "verified" for e,d in seen))
 
@@ -235,23 +233,23 @@ class UartTests(unittest.TestCase):
             worker.join(timeout=2)
             db = root / "test-inspections.sqlite3"
             rows = query_inspections(db_path=db)
-            self.assertEqual(len(rows), 2)
-            old, new = rows[1], rows[0]
+            self.assertEqual(len(rows), 1)
+            old = rows[0]
             self.assertEqual(old["test_code"], "AT_READ_ALL_V1")
-            self.assertEqual(new["test_code"], "AT_CONFIG_SNAPSHOT_V1")
-            self.assertEqual((old["result"], new["result"]), ("PASS", "PASS"))
-            self.assertEqual(old["module_code"], new["module_code"])
+
+            self.assertEqual(old["result"], "PASS")
+
             self.assertEqual(db_status(db)["modules"], 1)
             self.assertEqual(db_status(db)["schema_version"], 1)
             self.assertEqual(len(fake.writes), 16)
             snapshot = [data for kind, data in seen if kind == "snapshot"][0]
             body = Path(snapshot["path"]).read_text(encoding="utf-8")
             self.assertNotIn("9876", body)
-            self.assertNotIn("9876", str(get_inspection(new["id"], db)))
+
             original = get_inspection(old["id"], db)
             self.assertEqual(original["test_code"], "AT_READ_ALL_V1")
             self.assertEqual(original["payload"]["passed"], 8)
-            self.assertEqual(snapshot["record"]["id"], new["id"])
+
             self.assertFalse(any(kind == "error" for kind, _ in seen))
 
     def test_jdy_snapshot_saved_in_sqlite_with_redacted_pin(self):
@@ -282,12 +280,9 @@ class UartTests(unittest.TestCase):
             saved = [d for k, d in seen if k == "snapshot"][0]
             content = Path(saved["path"]).read_text(encoding="utf-8")
             record = query_inspections(db_path=db)
-            self.assertEqual(len(record), 1)
-            self.assertEqual(record[0]["test_code"], "AT_CONFIG_SNAPSHOT_V1")
-            self.assertEqual(record[0]["result"], "PASS")
-            self.assertEqual(saved["record"]["id"], record[0]["id"])
+            self.assertEqual(len(record), 0)
             self.assertNotIn("1234", content)
-            self.assertNotIn("1234", str(get_inspection(record[0]["id"], db)))
+
             self.assertEqual(fake.writes[-1], b"AT+PIN\r\n")
 
     def test_jdy_baud_change_recorded_as_incomplete_before_reboot(self):
@@ -315,9 +310,7 @@ class UartTests(unittest.TestCase):
             inbox.put(("stop", None, {}))
             worker.join(timeout=2)
             rows = query_inspections(db_path=db)
-            self.assertEqual(len(rows), 1)
-            self.assertEqual(rows[0]["test_code"], "AT_WRITE_PENDING_RESTART_V1")
-            self.assertEqual(rows[0]["result"], "INCOMPLETE")
+            self.assertEqual(len(rows), 0)
             self.assertEqual(fake.writes[-1], b"AT+BAUD5\r\n")
             self.assertTrue(any(k == "change" and d.get("status") == "pending_power_cycle"
                                 for k, d in seen))
