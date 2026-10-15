@@ -208,6 +208,52 @@ class UartTests(unittest.TestCase):
             self.assertFalse((Path(temp) / "test-inspections.sqlite3").exists())
         self.assertTrue(any(kind == "error" for kind, data in seen))
 
+    def test_bt18_inspect_then_snapshot_preserves_prior_db_record(self):
+        batch = [
+            b"OK\r\n",
+            b"+VERS=V3.01\r\nOK\r\n",
+            b"+ADSS=02a1b2c3d4e5\r\nOK\r\n",
+            b"+NAME=BT18-T\r\nOK\r\n",
+            b"+BAUD=1\r\nOK\r\n",
+            b"+PIN=9876\r\nOK\r\n",
+            b"+UUID=ffe0,ffe1,ffe2\r\nOK\r\n",
+            b"+FLOW=0\r\nOK\r\n",
+        ]
+        fake = FakeSerial(batch + batch)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            worker, inbox, outbox, profile = self._worker(fake, root)
+            seen = []
+            for action in ("inspect", "snapshot"):
+                inbox.put((action, profile, {}))
+                while True:
+                    kind, data = outbox.get(timeout=10)
+                    seen.append((kind, data))
+                    if kind == "done":
+                        break
+            inbox.put(("stop", None, {}))
+            worker.join(timeout=2)
+            db = root / "test-inspections.sqlite3"
+            rows = query_inspections(db_path=db)
+            self.assertEqual(len(rows), 2)
+            old, new = rows[1], rows[0]
+            self.assertEqual(old["test_code"], "AT_READ_ALL_V1")
+            self.assertEqual(new["test_code"], "AT_CONFIG_SNAPSHOT_V1")
+            self.assertEqual((old["result"], new["result"]), ("PASS", "PASS"))
+            self.assertEqual(old["module_code"], new["module_code"])
+            self.assertEqual(db_status(db)["modules"], 1)
+            self.assertEqual(db_status(db)["schema_version"], 1)
+            self.assertEqual(len(fake.writes), 16)
+            snapshot = [data for kind, data in seen if kind == "snapshot"][0]
+            body = Path(snapshot["path"]).read_text(encoding="utf-8")
+            self.assertNotIn("9876", body)
+            self.assertNotIn("9876", str(get_inspection(new["id"], db)))
+            original = get_inspection(old["id"], db)
+            self.assertEqual(original["test_code"], "AT_READ_ALL_V1")
+            self.assertEqual(original["payload"]["passed"], 8)
+            self.assertEqual(snapshot["record"]["id"], new["id"])
+            self.assertFalse(any(kind == "error" for kind, _ in seen))
+
     def test_jdy_snapshot_saved_in_sqlite_with_redacted_pin(self):
         fake = FakeSerial([
             b"+VERSION=JDY-31A-V2.241,Bluetooth V3.0+BLE\r\n",
