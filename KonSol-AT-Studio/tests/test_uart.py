@@ -244,6 +244,38 @@ class UartTests(unittest.TestCase):
             self.assertNotIn("1234", str(get_inspection(record[0]["id"], db)))
             self.assertEqual(fake.writes[-1], b"AT+PIN\r\n")
 
+    def test_jdy_baud_change_recorded_as_incomplete_before_reboot(self):
+        fake = FakeSerial([
+            b"+VERSION=JDY-31A-V2.241,Bluetooth V3.0+BLE\r\n",
+            b"+LADDR=02A1B2C3D4E5\r\n",
+            b"+BAUD=4\r\n",
+            b"+OK\r\n",
+        ])
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            db = root / "db.sqlite3"
+            inbox, outbox = queue.Queue(), queue.Queue()
+            worker = SerialWorker(inbox, outbox, root, db_path=db)
+            profile = parse_profile(ROOT / "modules" / "jdy31")
+            worker.port, worker.connected_profile = fake, profile.key
+            worker.start()
+            inbox.put(("write", profile, {"qid": "baud", "value": "5"}))
+            seen = []
+            while True:
+                kind, data = outbox.get(timeout=5)
+                seen.append((kind, data))
+                if kind == "done":
+                    break
+            inbox.put(("stop", None, {}))
+            worker.join(timeout=2)
+            rows = query_inspections(db_path=db)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["test_code"], "AT_WRITE_PENDING_RESTART_V1")
+            self.assertEqual(rows[0]["result"], "INCOMPLETE")
+            self.assertEqual(fake.writes[-1], b"AT+BAUD5\r\n")
+            self.assertTrue(any(k == "change" and d.get("status") == "pending_power_cycle"
+                                for k, d in seen))
+
     def test_no_factory_command_on_real_profile(self):
         fake = FakeSerial([])
         with tempfile.TemporaryDirectory() as temp:
