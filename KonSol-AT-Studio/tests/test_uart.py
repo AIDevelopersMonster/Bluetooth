@@ -95,6 +95,38 @@ class UartTests(unittest.TestCase):
         self.assertEqual(fake.writes, [b"AT+ADSS?\r\n", b"AT+NAME?\r\n", b"AT+NAME=KON-BT18\r\n", b"AT+NAME?\r\n"])
         self.assertTrue(any(e == "change" and d["status"] == "verified" for e,d in seen))
 
+    def test_jdy31_name_write_without_equals_and_plus_ok(self):
+        fake = FakeSerial([
+            b"+VERSION=JDY-31A-V2.241,Bluetooth V3.0+BLE\r\n",
+            b"+LADDR=02A1B2C3D4E5\r\n",
+            b"+NAME=JDY-31\r\n",
+            b"+OK\r\n",
+            b"+NAME=KON-BT31\r\n",
+        ])
+        with tempfile.TemporaryDirectory() as temp:
+            commands, events = queue.Queue(), queue.Queue()
+            worker = SerialWorker(commands, events, Path(temp),
+                                  db_path=Path(temp) / "inspections.sqlite3")
+            profile = parse_profile(ROOT / "modules" / "jdy31")
+            worker.port, worker.connected_profile = fake, profile.key
+            worker.start()
+            commands.put(("write", profile, {"qid": "name", "value": "KON-BT31"}))
+            seen = []
+            while True:
+                kind, data = events.get(timeout=5)
+                seen.append((kind, data))
+                if kind == "done":
+                    break
+            commands.put(("stop", None, {}))
+            worker.join(timeout=2)
+        self.assertEqual(fake.writes, [
+            b"AT+VERSION\r\n", b"AT+LADDR\r\n", b"AT+NAME\r\n",
+            b"AT+NAMEKON-BT31\r\n", b"AT+NAME\r\n",
+        ])
+        self.assertTrue(any(kind == "change" and data.get("status") == "verified"
+                            for kind, data in seen))
+        self.assertFalse(any(kind == "error" for kind, data in seen))
+
     def test_failed_preread_blocks_write(self):
         fake = FakeSerial([b"+ADSS=02a1b2c3d4e5\r\nOK\r\n", b"ERR\r\n"])
         with tempfile.TemporaryDirectory() as temp:
