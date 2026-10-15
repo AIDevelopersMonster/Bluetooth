@@ -6,7 +6,7 @@
   "ending": "CRLF",
   "timeout_ms": 800,
   "verified_reads": true,
-  "notes": "JDY-31A V2.241 / Bluetooth 3.0+BLE; 9600 8N1 CRLF. Five UART AT reads physically verified. NAME setter PHYSICALLY VERIFIED 2026-10-15: AT+NAMEKON-BT31 => +OK, immediate and later same-session AT+NAME => KON-BT31; local SQLite record #22 PASS AT_WRITE_READBACK_V1. Persistence after power-cycle and Bluetooth advertising are not certified by this log. PIN and BAUD setters UNTESTED on this firmware. Writes gated by version, pre-read and confirmation. BLE/GATT AT candidates excluded; reset disabled. Breakout VCC 3.6-6 V, UART logic 3.3 V.",
+  "notes": "JDY-31A V2.241: 5 UART reads verified; NAME write/readback PASS; BAUD/PIN writes reported OK by operator. FACTORY restore AT+DEFAULT is DOCUMENTED for legacy JDY-31 but UNTESTED on this firmware. Before sending, Studio snapshots current values and checks firmware. After reset, reconnect at 9600 and read core. BLE GATT is separate.",
   "reference": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
   "queries": [
     {
@@ -73,5 +73,13 @@
       }
     }
   ],
-  "factory_reset": null
+  "factory_reset": {
+    "command": "AT+DEFAULT",
+    "source_url": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
+    "verified_on_hardware": false,
+    "experimental": true,
+    "require_version_prefix": "JDY-31A-V2.241,",
+    "expected_baud_after_reset": 9600,
+    "notes": "Factory reset documented for JDY-31 V1.x, not yet verified on JDY-31A V2.241. Restored defaults must be measured; original pre-test name JDY-31, baud 4 and PIN 1234 are observed baseline, NOT proof of factory state."
+  }
 }
