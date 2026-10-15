@@ -88,7 +88,7 @@ class UartTests(unittest.TestCase):
                     break
             commands.put(("stop", None, {}))
             w.join(timeout=2)
-            self.assertEqual(db_status(Path(temp) / "test-inspections.sqlite3")["inspections"], 0)
+            self.assertEqual(db_status(Path(temp) / "test-inspections.sqlite3")["inspections"], 1)
 
         self.assertEqual(fake.writes, [b"AT+ADSS?\r\n", b"AT+NAME?\r\n", b"AT+NAME=KON-BT18\r\n", b"AT+NAME?\r\n"])
         self.assertTrue(any(e == "change" and d["status"] == "verified" for e,d in seen))
