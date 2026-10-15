@@ -6,7 +6,7 @@
   "ending": "CRLF",
   "timeout_ms": 800,
   "verified_reads": true,
-  "notes": "JDY-31A V2.241: confirmed five AT UART reads, name write/readback, operator-tested BAUD and PIN changes. Physical factory reset AT+DEFAULT restored JDY-33-SPP / BAUD=4 (9600) / PIN=1234; earlier JDY-31 was a MANUALLY chosen name, never factory. AT+RESET is a documented software restart, not a factory restore; its V2.241 behavior requires independent verification. Both operations are version-gated and separately confirmed. BLE GATT not managed in this UART tab.",
+  "notes": "JDY-31A V2.241: confirmed five AT UART reads, name write/readback, operator-tested BAUD and PIN changes. Physical factory reset AT+DEFAULT restored JDY-33-SPP / BAUD=4 (9600) / PIN=1234; earlier JDY-31 was a MANUALLY chosen name, never factory. AT+RESET is a documented software restart, not a factory restore; operator tested AT+RESET as a software restart. Both operations are version-gated and separately confirmed. BLE GATT not managed in this UART tab.",
   "reference": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
   "queries": [
     {
@@ -89,8 +89,8 @@
   "soft_reset": {
     "command": "AT+RESET",
     "source_url": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
-    "verified_on_hardware": false,
+    "verified_on_hardware": true,
     "require_version_prefix": "JDY-31A-V2.241,",
-    "notes": "Documented software reboot; expected to preserve settings. +OK reply/retention on this exact firmware not yet independently confirmed."
+    "notes": "AT+RESET was tested by operator as software restart; exact timing and persistence not captured in logs. Separate from verified AT+DEFAULT."
   }
 }
