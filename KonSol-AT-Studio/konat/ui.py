@@ -53,33 +53,72 @@ class SerialWorker(threading.Thread):
         return reply
 
     def _snapshot(self, profile, required_all=True):
+        """Capture fresh UART responses in private JSON AND append-only SQLite.
+
+        Never publish a PIN in snapshots. If MAC is not available, preserve the
+        local file but do not attribute evidence to an invented module identity.
+        """
+        observed_at = timestamp_utc()
+        replies = {}
+        for query in profile.queries:
+            if query.get("probe_only"):
+                continue
+            replies[query["id"]] = self._query(profile, query)
+        outcome = examine_queries(profile, replies)
         responses = []
         for query in profile.queries:
             if query.get("probe_only"):
                 continue
-            reply = self._query(profile, query)
+            reply = replies[query["id"]]
+            secret = any(token in query["id"].lower()
+                         for token in ("pin", "password", "secret"))
             responses.append({
                 "id": query["id"], "command": query["command"],
-                "value": response_value(reply, query.get("prefix", "")),
-                "response_text": reply.decode("utf-8", errors="replace"),
-                "response_hex": reply.hex(),
+                "value": "[REDACTED]" if secret else response_value(reply, query.get("prefix", "")),
+                "response_text": "[REDACTED]" if secret else reply.decode("utf-8", errors="replace"),
+                "response_hex": "[REDACTED]" if secret else reply.hex().upper(),
+                "received": bool(reply),
             })
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         base = self.root / "snapshots"
         base.mkdir(parents=True, exist_ok=True)
         output = base / f"{profile.key}_{stamp}.json"
         data = {
-            "tool": "KonSol AT Studio 0.2.0", "module_profile": profile.key,
-            "recorded_utc": datetime.now(timezone.utc).isoformat(),
-            "port": self.port.port, "baud": self.port.baudrate,
-            "warning": "Local-only data: may include Bluetooth address and pairing PIN",
+            "schema": "konat-config-snapshot/v1",
+            "tool": "KonSol AT Studio 0.2.0",
+            "module_profile": profile.key,
+            "recorded_utc": observed_at,
+            "reported_mac": outcome["mac"],
+            "firmware": outcome["firmware"],
+            "port": self.port.port,
+            "baud": self.port.baudrate,
+            "result": outcome["result"],
+            "warning": "Private evidence: MAC address. PIN values and raw PIN responses are redacted.",
             "results": responses,
         }
         output.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        self.emit("snapshot", path=str(output))
-        complete = all(x["response_hex"] for x in responses)
+        record = None
+        if outcome["mac"] is not None:
+            record = add_inspection(
+                mac=outcome["mac"], identity_source=profile.by_id("address")["command"],
+                profile=profile.key, test_code="AT_CONFIG_SNAPSHOT_V1",
+                result=outcome["result"], tested_on=observed_at[:10],
+                tested_at_utc=observed_at, evidence_source="live_uart",
+                evidence_ref=str(output), board=profile.title,
+                sw_version=outcome["firmware"],
+                port=self.port.port, baud=self.port.baudrate,
+                db_path=self.db_path,
+                payload={"scope": "Configuration observation only; not incoming acceptance",
+                         "snapshot_file": str(output),
+                         "passed": outcome["passed"], "total": outcome["total"],
+                         "checks": outcome["checks"]},
+            )
+        else:
+            self.emit("log", message="WARNING: snapshot saved only to JSON; module address missing, no SQLite record")
+        self.emit("snapshot", path=str(output), record=record, result=outcome["result"])
+        complete = outcome["result"] == "PASS" and outcome["mac"] is not None
         if required_all and not complete:
-            self.emit("log", message="WARNING: snapshot has missing replies; review before changing anything")
+            self.emit("log", message="WARNING: snapshot is incomplete; review before changing settings")
         return output, complete
 
     def _identity(self, profile):
