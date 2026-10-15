@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "id": "jdy31",
+  "title": "JDY-31 (Bluetooth 3.0 SPP)",
+  "baud": 9600,
+  "ending": "CRLF",
+  "timeout_ms": 800,
+  "verified_reads": false,
+  "notes": "REFERENCE / NOT YET BENCH-VERIFIED. JDY-31 reads use AT+TOKEN (no '?') and normally return +TOKEN=value WITHOUT trailing OK. Only read-only queries are enabled. On the pictured backplane: VCC 3.6-6 V, UART logic 3.3 V. Factory reset and writes are disabled. PIN can appear in the private session log and snapshots.",
+  "reference": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
+  "queries": [
+    {
+      "id": "version",
+      "label": "Firmware version",
+      "command": "AT+VERSION",
+      "prefix": "+VERSION="
+    },
+    {
+      "id": "address",
+      "label": "Bluetooth MAC (reported)",
+      "command": "AT+LADDR",
+      "prefix": "+LADDR="
+    },
+    {
+      "id": "name",
+      "label": "Bluetooth name",
+      "command": "AT+NAME",
+      "prefix": "+NAME="
+    },
+    {
+      "id": "baud",
+      "label": "UART baud index",
+      "command": "AT+BAUD",
+      "prefix": "+BAUD="
+    },
+    {
+      "id": "pin",
+      "label": "Pairing PIN (private)",
+      "command": "AT+PIN",
+      "prefix": "+PIN="
+    }
+  ],
+  "factory_reset": null
+}
