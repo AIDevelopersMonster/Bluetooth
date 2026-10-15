@@ -218,6 +218,17 @@ class SerialWorker(threading.Thread):
                                       status="verified" if success else "unverified",
                                       old=old, new=value, actual=actual,
                                       power_cycle=query["edit"].get("power_cycle", False))
+                        elif action == "restart":
+                            reboot = profile.folder / "profile.json"
+                            config = json.loads(reboot.read_text(encoding="utf-8")).get("soft_reset")
+                            if not config or profile.key != "jdy31":
+                                raise RuntimeError("No supported software-restart command")
+                            vr = self._query(profile, profile.by_id("version"))
+                            vv = response_value(vr, "+VERSION=")
+                            if not vv or not vv.startswith(config["require_version_prefix"]):
+                                raise RuntimeError("Firmware mismatch: restart not sent")
+                            ack = self._exchange(config["command"], profile)
+                            self.emit("restart", status=("+OK" if b"+OK" in ack.upper() else status_of(ack)))
                         elif action == "factory":
                             reset = profile.factory_reset
                             if reset is None or not (reset.get("verified_on_hardware") or (profile.key == "jdy31" and reset.get("experimental"))):
@@ -340,6 +351,8 @@ class ModuleTab:
             ttk.Label(reset, text="Requires a verified command, double confirmation and a pre-reset snapshot.",
                       wraplength=570).pack(anchor="w", pady=(6, 0))
         self.factory_button.pack(anchor="w")
+        if self.profile.key == "jdy31":
+            ttk.Button(reset, text="Restart module (AT+RESET)", command=self.app.soft_restart).pack(anchor="w", pady=(8, 0))
 
     def read_selected(self):
         selection = self.tree.selection()
@@ -519,6 +532,14 @@ class ATStudio:
         self.conn_status.set("Working...")
         self.queue_in.put((action, profile, kwargs))
 
+    def soft_restart(self):
+        tab = self.selected_tab()
+        if tab is None or tab.profile.key != "jdy31":
+            return
+        if not messagebox.askyesno("Restart Bluetooth module", "Send AT+RESET? Bluetooth connections may disconnect; stored settings should remain unchanged."):
+            return
+        self.action("restart", tab.profile)
+
     def factory_reset(self):
         tab = self.selected_tab()
         if tab is None or tab.profile.factory_reset is None:
@@ -580,6 +601,8 @@ class ATStudio:
                         item["reported_mac"], data["test_code"]))
                     messagebox.showinfo("Inspection recorded", "Record #{} | {} | {}\nStored privately in: {}".format(
                         item["id"], item["module_code"], item["result"], item["database"]))
+                elif kind == "restart":
+                    messagebox.showinfo("Restart sent", "Restart command result: " + data["status"] + ". Re-read settings to verify they were retained.")
                 elif kind == "factory":
                     messagebox.showwarning("Factory reset result", f"Reset command reply: {data['status']}.\n"
                                            "Check module settings and UART baud after restart; do not assume restore succeeded.")
