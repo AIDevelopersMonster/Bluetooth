@@ -6,7 +6,7 @@
   "ending": "CRLF",
   "timeout_ms": 800,
   "verified_reads": true,
-  "notes": "JDY-31A V2.241 / Bluetooth 3.0+BLE. Five UART AT reads are PHYSICALLY VERIFIED at 9600 8N1 CRLF. NAME/PIN/BAUD setters use the documented legacy JDY-31 syntax (AT+TOKENvalue, no '='); setter behavior on this exact firmware is NOT YET physically accepted. Writes require an explicit version check, pre-read, acknowledgment and verification or pending power-cycle. Only UART/SPP parameters are shown here; BLE GATT is a separate protocol and must be investigated separately. No unverified commands, reset or automatic settings writes. Adapter VCC 3.6-6 V, UART level 3.3 V.",
+  "notes": "JDY-31A V2.241 / Bluetooth 3.0+BLE; 9600 8N1 CRLF. Five UART AT reads physically verified. NAME setter PHYSICALLY VERIFIED 2026-10-15: AT+NAMEKON-BT31 => +OK, immediate and later same-session AT+NAME => KON-BT31; local SQLite record #22 PASS AT_WRITE_READBACK_V1. Persistence after power-cycle and Bluetooth advertising are not certified by this log. PIN and BAUD setters UNTESTED on this firmware. Writes gated by version, pre-read and confirmation. BLE/GATT AT candidates excluded; reset disabled. Breakout VCC 3.6-6 V, UART logic 3.3 V.",
   "reference": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
   "queries": [
     {
@@ -31,7 +31,7 @@
         "pattern": "[A-Za-z0-9 _.\\-]{1,18}",
         "risk": "medium",
         "require_version_prefix": "JDY-31A-V2.241,",
-        "hint": "JDY-31 syntax: AT+NAME followed immediately by a 1..18 byte ASCII name (no equals sign). After write, verify by AT+NAME; reconnect or power-cycle if the phone caches the old advertisement."
+        "hint": "Physically verified on JDY-31A V2.241: AT+NAME{value} returned +OK and matched UART readback (15 Oct 2026). Persistence across power-cycle not yet tested. Re-pairing may be required."
       },
       "unknown_values": [
         "?"
