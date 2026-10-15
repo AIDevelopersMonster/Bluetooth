@@ -222,11 +222,16 @@ class SerialWorker(threading.Thread):
                             reset = profile.factory_reset
                             if reset is None or not (reset.get("verified_on_hardware") or (profile.key == "jdy31" and reset.get("experimental"))):
                                 raise RuntimeError("Factory reset command is not verified for this module")
+                            if reset.get("experimental"):
+                                vr = self._query(profile, profile.by_id("version"))
+                                vv = response_value(vr, "+VERSION=")
+                                if not vv or not vv.startswith(reset.get("require_version_prefix", "UNKNOWN")):
+                                    raise RuntimeError("Firmware mismatch: factory command not sent")
                             _, snapshot_complete = self._snapshot(profile)
                             if not snapshot_complete:
                                 raise RuntimeError("Pre-reset snapshot incomplete; factory reset NOT SENT")
                             ack = self._exchange(reset["command"], profile)
-                            self.emit("factory", status=status_of(ack))
+                            self.emit("factory", status=("+OK" if b"+OK" in ack.upper() else status_of(ack)))
                         else:
                             raise RuntimeError(f"Unknown worker action: {action}")
                 except Exception as exc:
