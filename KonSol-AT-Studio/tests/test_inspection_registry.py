@@ -113,11 +113,11 @@ class CaptureTests(unittest.TestCase):
     def test_jdy31_without_trailing_ok(self):
         profile = next(x for x in self.profiles if x.key == "jdy31")
         replies = {
-            "version": b"+VERSION=JDY-31-V1.2,Bluetooth V3.0\\r\\n",
-            "address": b"+LADDR=02A1B2C3D4E5\\r\\n",
-            "name": b"+NAME=JDY-31-SPP\\r\\n",
-            "baud": b"+BAUD=4\\r\\n",
-            "pin": b"+PIN=1234\\r\\n",
+            "version": b"+VERSION=JDY-31-V1.2,Bluetooth V3.0\r\n",
+            "address": b"+LADDR=02A1B2C3D4E5\r\n",
+            "name": b"+NAME=JDY-31-SPP\r\n",
+            "baud": b"+BAUD=4\r\n",
+            "pin": b"+PIN=1234\r\n",
         }
         result = examine_queries(profile, replies)
         self.assertEqual(result["result"], "PASS")
