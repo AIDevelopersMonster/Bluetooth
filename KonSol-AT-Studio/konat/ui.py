@@ -55,6 +55,8 @@ class SerialWorker(threading.Thread):
     def _snapshot(self, profile, required_all=True):
         responses = []
         for query in profile.queries:
+            if query.get("probe_only"):
+                continue
             reply = self._query(profile, query)
             responses.append({
                 "id": query["id"], "command": query["command"],
@@ -96,6 +98,8 @@ class SerialWorker(threading.Thread):
         start = timestamp_utc()
         replies = {}
         for query in profile.queries:
+            if query.get("probe_only"):
+                continue
             replies[query["id"]] = self._query(profile, query)
         outcome = examine_queries(profile, replies)
         if outcome["mac"] is None:
@@ -165,7 +169,8 @@ class SerialWorker(threading.Thread):
                             self._query(profile, profile.by_id(kw["qid"]))
                         elif action == "read_all":
                             for query in profile.queries:
-                                self._query(profile, query)
+                                if not query.get("probe_only"):
+                                    self._query(profile, query)
                         elif action == "snapshot":
                             self._snapshot(profile)
                         elif action == "inspect":
@@ -245,7 +250,7 @@ class ModuleTab:
         f.rowconfigure(1, weight=1)
         notes = ttk.Label(f, text=self.profile.notes, wraplength=1090, justify="left")
         notes.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(10, 7))
-        left = ttk.LabelFrame(f, text="AT Queries (read only)", padding=10)
+        left = ttk.LabelFrame(f, text="AT Queries (read-only; probes manual)", padding=10)
         left.grid(row=1, column=0, sticky="nsew", padx=(10, 5), pady=4)
         left.rowconfigure(0, weight=1)
         left.columnconfigure(0, weight=1)
@@ -269,7 +274,7 @@ class ModuleTab:
         controls = ttk.Frame(left)
         controls.grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0))
         ttk.Button(controls, text="Read selected", command=self.read_selected).pack(side="left", padx=(0, 5))
-        ttk.Button(controls, text="Read ALL", command=lambda:self.app.action("read_all", self.profile)).pack(side="left", padx=5)
+        ttk.Button(controls, text="Read core", command=lambda:self.app.action("read_all", self.profile)).pack(side="left", padx=5)
         ttk.Button(controls, text="Save snapshot JSON", command=lambda:self.app.action("snapshot", self.profile)).pack(side="left", padx=5)
         ttk.Button(controls, text="Inspect & record", command=lambda:self.app.action("inspect", self.profile)).pack(side="left", padx=5)
 
@@ -322,6 +327,10 @@ class ModuleTab:
         selection = self.tree.selection()
         if not selection:
             messagebox.showinfo("Selection", "Select a query in the left table first")
+            return
+        q = self.profile.by_id(selection[0])
+        if q.get("probe_only") and not messagebox.askyesno("Unverified JDY-31A query",
+                f"{q['command']} is unverified on this firmware. Send this ONE query?"):
             return
         self.app.action("query", self.profile, qid=selection[0])
 
