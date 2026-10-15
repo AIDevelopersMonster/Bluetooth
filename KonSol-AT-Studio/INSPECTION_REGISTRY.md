@@ -145,3 +145,7 @@ PIN values and raw PIN reply bytes are redacted from the **newly generated**
 JSON snapshots and inspection records. Older snapshots might still contain
 plaintext PINs. Before sharing or archiving earlier snapshots, inspect them
 privately. The original SQLite file is preserved, and records are append-only.
+
+## Stock registration policy (revised 2026-10-15)
+
+The SQLite registry is for explicitly registered, successfully tested supplied modules, **not** an experimental log. Read core, setting changes via Apply, factory restore, software restart, and Save snapshot JSON must never auto-register an item. Factory restore operates even when the current configuration fails validation, without creating a database record. The explicit **Register checked module** action performs a fresh full AT inspection and records only a PASS result with a valid module-reported MAC. No FAIL/INCOMPLETE stock rows are created. JSON snapshots are local scratch files and have no database side-effect. Legacy existing records remain intact; no automatic purge occurs. Because old rows may include experimental outcomes, any cleanup must be separately reviewed rather than guessed or automatically performed.
