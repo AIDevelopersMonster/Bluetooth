@@ -1,10 +1,10 @@
 # JDY-31A V2.241 laboratory reference
 
-Physical identification (15 Oct 2026, UART): `+VERSION=JDY-31A-V2.241,Bluetooth V3.0+BLE`; default UART 9600 8N1 CRLF; `+BAUD=4`; address read through `AT+LADDR`. Name request answered `+NAME=?`; **do not treat '?' as a certified device name**. PIN was read but should not be published.
+Physical identification (15 Oct 2026, UART): `+VERSION=JDY-31A-V2.241,Bluetooth V3.0+BLE`; default UART 9600 8N1 CRLF; `+BAUD=4`; address read through `AT+LADDR`. Following `AT+NAME`, the module now appears to the operator as Bluetooth name `?`. The command may have changed the stored name; no causal proof yet, so it is quarantined from automatic operation. PIN was read but should not be published.
 
 ## Command evidence classes
 
-- **Measured on this firmware:** AT+VERSION, AT+LADDR, AT+NAME, AT+BAUD, AT+PIN. These five are the **Read core / Inspect** set. No setters.
+- **Measured on this firmware:** AT+VERSION, AT+LADDR, AT+NAME, AT+BAUD, AT+PIN. Only VERSION, LADDR, BAUD and PIN remain in the **Read core / Inspect** set. `AT+NAME` is a manual opt-in test subject with a confirmation. No setters.
 - **Candidates for manual, opt-in investigation:** AT, AT+ENLOG, AT+STAT, AT+NAMB, AT+TYPE, AT+UUIDLEN, AT+SVRUUID, AT+CHRUUID, AT+CRXUUID, AT+UARTMODE, AT+STTS. Candidate syntax is drawn from related-module documents and must **not** be interpreted as a verified JDY-31A V2.241 command list. Their actions may differ across firmwares; do not bulk transmit. GUI prompts before an individual experimental query.
 - **Forbidden in this profile:** configuration setters, factory reset, AT+RESET, AT+DISC, AT+SLEEP.
 
@@ -20,6 +20,6 @@ Sources:
 
 ## Protocol note
 
-`Read core`, snapshots and SQLite incoming inspections **ignore opt-in probes** so unsupported commands cannot generate false FAIL statuses. `+NAME=?` is treated as an unknown value in inspection scoring; neither a valid name nor a passed name check is claimed.
+`Read core`, snapshots and SQLite incoming inspections **ignore opt-in probes, including AT+NAME** so unsupported commands cannot generate false FAIL statuses. `+NAME=?` is not scored by automated incoming inspection; observed phone advertising name `?` motivates a controlled before/after test.
 
 Do not publish session logs, inspection database, real device MACs or pairing PINs.
