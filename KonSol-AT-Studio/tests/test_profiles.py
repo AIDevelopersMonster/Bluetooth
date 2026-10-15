@@ -27,7 +27,7 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual([q["command"] for q in p.queries],
                          ["AT+VERSION", "AT+LADDR", "AT+NAME", "AT+BAUD", "AT+PIN"])
         self.assertEqual(p.baud, 9600)
-        self.assertEqual(p.ending, b"\\r\\n")
+        self.assertEqual(p.ending, b"\r\n")
         self.assertFalse(p.verified_reads)
         self.assertFalse(p.setters)
         self.assertIsNone(p.factory_reset)
