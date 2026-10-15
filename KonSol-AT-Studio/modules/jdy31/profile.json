@@ -6,8 +6,8 @@
   "ending": "CRLF",
   "timeout_ms": 800,
   "verified_reads": true,
-  "notes": "PHYSICALLY VERIFIED on JDY-31A-V2.241 (2026-10-15): Classic 3.0 + BLE, UART 9600 8N1 CRLF. Five read queries (VERSION, LADDR, NAME, BAUD, PIN) returned values. AT+NAME returned +NAME=JDY-31 after operator renamed the device; an earlier +NAME=? coincided with the name shown on the phone. The origin of '?' is UNKNOWN; no evidence that AT+NAME caused it. Eleven [PROBE] commands from related-module documentation remain unverified and excluded from automatic reads, snapshots, and inspection. All writes/reset disabled. Breakout VCC 3.6-6V, UART 3.3V.",
-  "reference": "https://fccid.io/2AXM8-JDY-33/User-Manual/15-JDY-33-UserMan-US-r2-4936883.pdf",
+  "notes": "JDY-31A V2.241 / Bluetooth 3.0+BLE. Five UART AT reads are PHYSICALLY VERIFIED at 9600 8N1 CRLF. NAME/PIN/BAUD setters use the documented legacy JDY-31 syntax (AT+TOKENvalue, no '='); setter behavior on this exact firmware is NOT YET physically accepted. Writes require an explicit version check, pre-read, acknowledgment and verification or pending power-cycle. Only UART/SPP parameters are shown here; BLE GATT is a separate protocol and must be investigated separately. No unverified commands, reset or automatic settings writes. Adapter VCC 3.6-6 V, UART level 3.3 V.",
+  "reference": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
   "queries": [
     {
       "id": "version",
@@ -25,96 +25,49 @@
       "id": "name",
       "label": "Bluetooth name",
       "command": "AT+NAME",
-      "prefix": "+NAME="
+      "prefix": "+NAME=",
+      "edit": {
+        "template": "AT+NAME{value}",
+        "pattern": "[A-Za-z0-9 _.\\-]{1,18}",
+        "risk": "medium",
+        "require_version_prefix": "JDY-31A-V2.241,",
+        "hint": "JDY-31 syntax: AT+NAME followed immediately by a 1..18 byte ASCII name (no equals sign). After write, verify by AT+NAME; reconnect or power-cycle if the phone caches the old advertisement."
+      }
     },
     {
       "id": "baud",
       "label": "UART baud index",
       "command": "AT+BAUD",
-      "prefix": "+BAUD="
+      "prefix": "+BAUD=",
+      "edit": {
+        "template": "AT+BAUD{value}",
+        "pattern": "[4-9]",
+        "risk": "high",
+        "power_cycle": true,
+        "require_version_prefix": "JDY-31A-V2.241,",
+        "choices": {
+          "4": "9600",
+          "5": "19200",
+          "6": "38400",
+          "7": "57600",
+          "8": "115200",
+          "9": "128000"
+        },
+        "hint": "Changes UART baud index (4..9) for the next session. Confirm before sending: after power-cycle, change the PC COM baud to the selected rate; immediate readback may be unavailable."
+      }
     },
     {
       "id": "pin",
       "label": "Pairing PIN (private)",
       "command": "AT+PIN",
-      "prefix": "+PIN="
-    },
-    {
-      "id": "at_ping",
-      "label": "[PROBE] AT ping",
-      "command": "AT",
-      "prefix": "",
-      "probe_only": true
-    },
-    {
-      "id": "enlog",
-      "label": "[PROBE] UART event output",
-      "command": "AT+ENLOG",
-      "prefix": "+ENLOG=",
-      "probe_only": true
-    },
-    {
-      "id": "stat",
-      "label": "[PROBE] Connection state",
-      "command": "AT+STAT",
-      "prefix": "+STAT=",
-      "probe_only": true
-    },
-    {
-      "id": "ble_name",
-      "label": "[PROBE] BLE advertised name",
-      "command": "AT+NAMB",
-      "prefix": "+NAME=",
-      "probe_only": true
-    },
-    {
-      "id": "type",
-      "label": "[PROBE] SPP password mode",
-      "command": "AT+TYPE",
-      "prefix": "+TYPE=",
-      "probe_only": true
-    },
-    {
-      "id": "uuid_length",
-      "label": "[PROBE] BLE UUID width",
-      "command": "AT+UUIDLEN",
-      "prefix": "+UUIDLEN=",
-      "probe_only": true
-    },
-    {
-      "id": "service_uuid",
-      "label": "[PROBE] BLE service UUID",
-      "command": "AT+SVRUUID",
-      "prefix": "+SVRUUID=",
-      "probe_only": true
-    },
-    {
-      "id": "char_uuid",
-      "label": "[PROBE] BLE characteristic UUID",
-      "command": "AT+CHRUUID",
-      "prefix": "",
-      "probe_only": true
-    },
-    {
-      "id": "rx_uuid",
-      "label": "[PROBE] BLE RX UUID",
-      "command": "AT+CRXUUID",
-      "prefix": "+CRXUUID=",
-      "probe_only": true
-    },
-    {
-      "id": "uart_mode",
-      "label": "[PROBE] UART parity",
-      "command": "AT+UARTMODE",
-      "prefix": "+UARTMODE=",
-      "probe_only": true
-    },
-    {
-      "id": "stat_pin",
-      "label": "[PROBE] STAT pin behavior",
-      "command": "AT+STTS",
-      "prefix": "+STTS=",
-      "probe_only": true
+      "prefix": "+PIN=",
+      "edit": {
+        "template": "AT+PIN{value}",
+        "pattern": "[0-9]{4}",
+        "risk": "high",
+        "require_version_prefix": "JDY-31A-V2.241,",
+        "hint": "Changes the SPP pairing PIN, exactly four decimal digits. Re-pair bonded devices if needed. Values must not be published."
+      }
     }
   ],
   "factory_reset": null
