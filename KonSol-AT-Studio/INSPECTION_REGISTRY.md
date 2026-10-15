@@ -125,3 +125,27 @@ These results are dated **2026-10-12**; we do not invent a timezone-specific
 instant or claim name persistence after power-cycle. A **private** separate
 starter SQLite registry can store these historical screenshots with the
 actual observed MAC, but it must not be uploaded to the public project.
+
+
+## Configuration snapshots in both SQLite and JSON
+
+The **Save snapshot JSON** command is now a live UART read, not only a file operation.
+It writes a private, timestamped, PIN-redacted JSON in \`snapshots/\` and appends
+an \`AT_CONFIG_SNAPSHOT_V1\` inspection to the existing SQLite registry *when the
+module reports a valid six-byte MAC*. No database migration is required.
+The evidence reference points to the local JSON path; JSON is still retained
+as an independent file for review and recovery.
+
+If the MAC cannot be read, the JSON is kept, but no SQLite inspection is
+attributed to an unknown module. A partial query set is saved as
+\`INCOMPLETE\`/\`FAIL\`, never relabelled as PASS. Neither a snapshot nor a
+successful AT query constitutes total incoming acceptance.
+
+PIN values and raw PIN reply bytes are redacted from the **newly generated**
+JSON snapshots and inspection records. Older snapshots might still contain
+plaintext PINs. Before sharing or archiving earlier snapshots, inspect them
+privately. The original SQLite file is preserved, and records are append-only.
+
+## Stock registration policy (revised 2026-10-15)
+
+The SQLite registry is for explicitly registered, successfully tested supplied modules, **not** an experimental log. Read core, setting changes via Apply, factory restore, software restart, and Save snapshot JSON must never auto-register an item. Factory restore operates even when the current configuration fails validation, without creating a database record. The explicit **Register checked module** action performs a fresh full AT inspection and records only a PASS result with a valid module-reported MAC. No FAIL/INCOMPLETE stock rows are created. JSON snapshots are local scratch files and have no database side-effect. Legacy existing records remain intact; no automatic purge occurs. Because old rows may include experimental outcomes, any cleanup must be separately reviewed rather than guessed or automatically performed.
