@@ -243,6 +243,20 @@ class SerialWorker(threading.Thread):
                             if not ack_ok:
                                 raise RuntimeError("Write was not acknowledged with OK. State is UNKNOWN; read again before retrying")
                             if query["edit"].get("power_cycle") and profile.key == "jdy31":
+                                started = timestamp_utc()
+                                recorded = add_inspection(
+                                    mac=mac, identity_source=address_command,
+                                    profile=profile.key, test_code="AT_WRITE_PENDING_RESTART_V1",
+                                    result="INCOMPLETE", tested_on=started[:10],
+                                    tested_at_utc=started, evidence_source="live_uart",
+                                    evidence_ref="KonSol AT Studio: acknowledged write, verification pending",
+                                    board=profile.title, port=self.port.port,
+                                    baud=self.port.baudrate, db_path=self.db_path,
+                                    payload={"qid": query["id"], "old": old, "new": value,
+                                             "ack_received": True,
+                                             "scope": "Post-restart setting and persistence NOT verified"})
+                                self.emit("inspection", record=recorded,
+                                          test_code="AT_WRITE_PENDING_RESTART_V1")
                                 self.emit("change", profile=profile.key, qid=query["id"],
                                           status="pending_power_cycle", old=old, new=value,
                                           power_cycle=True)
