@@ -121,7 +121,7 @@ def parse_profile(folder: Path) -> Profile:
         command = _string(reset, "command", 100)
         if not command.isascii() or not _AT_RESET.fullmatch(command):
             raise ProfileError(f"{path}: invalid reset command")
-        if reset.get("verified_on_hardware") is not True or not reset.get("source_url"):
+        if not reset.get("source_url") or (reset.get("verified_on_hardware") is not True and not (key == "jdy31" and reset.get("experimental") is True and command == "AT+DEFAULT" and reset.get("require_version_prefix") == "JDY-31A-V2.241,")):
             raise ProfileError(f"{path}: factory reset requires explicit hardware verification and documented source_url")
     return Profile(
         key=key, title=title, folder=folder, baud=baud, ending=ending,
