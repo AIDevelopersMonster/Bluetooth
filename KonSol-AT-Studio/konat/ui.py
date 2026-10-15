@@ -41,10 +41,10 @@ class SerialWorker(threading.Thread):
         self.outbox.put((event, kw))
 
     def _exchange(self, command, profile):
-        self.emit("log", message=f"TX {command}")
+        self.emit("log", message=f"TX {'[PIN WRITE REDACTED]' if profile.key == 'jdy31' and command.startswith('AT+PIN') and command != 'AT+PIN' else command}")
         reply = AtTransport(self.port).exchange(command, profile.ending, profile.timeout)
         shown = reply.decode("utf-8", errors="backslashreplace").replace("\r", "\\r").replace("\n", "\\n")
-        self.emit("log", message=f"RX {shown if reply else '[TIMEOUT]'}")
+        self.emit("log", message=f"RX {'[PIN RESPONSE REDACTED]' if profile.key == 'jdy31' and command.startswith('AT+PIN') else (shown if reply else '[TIMEOUT]')}")
         return reply
 
     def _query(self, profile, query):
@@ -86,7 +86,7 @@ class SerialWorker(threading.Thread):
         """Obtain module-reported MAC from the current live UART session."""
         query = profile.by_id("address")
         reply = self._query(profile, query)
-        if status_of(reply) != "OK":
+        if status_of(reply) not in ("OK", "RESPONSE"):
             raise RuntimeError("Cannot read the module address; no untraceable WRITE is allowed")
         value = response_value(reply, query.get("prefix", ""))
         try:
@@ -181,20 +181,33 @@ class SerialWorker(threading.Thread):
                                 raise RuntimeError("This setter is disabled in the module profile")
                             value = kw["value"]
                             command = validate_setting(query, value)
+                            if profile.key == "jdy31":
+                                version_reply = self._query(profile, profile.by_id("version"))
+                                version_value = response_value(version_reply, profile.by_id("version").get("prefix", ""))
+                                expected = query["edit"].get("require_version_prefix")
+                                if not expected or not version_value or not version_value.startswith(expected):
+                                    raise RuntimeError("JDY-31A firmware mismatch; WRITE NOT SENT")
                             mac, address_command = self._identity(profile)
                             # Never write without an initial response for this exact field.
                             previous = self._query(profile, query)
                             old = response_value(previous, query.get("prefix", ""))
                             if old is None or status_of(previous) == "ERROR":
                                 raise RuntimeError("Pre-write readback failed. Configuration was NOT changed")
-                            self.emit("log", message=f"PRE-WRITE {query['label']}: {old}")
+                            self.emit("log", message=f"PRE-WRITE {query['label']}: {'[REDACTED]' if query['id'] == 'pin' else old}")
                             if old == value:
                                 self.emit("change", profile=profile.key, qid=query["id"],
                                           status="unchanged", old=old, new=value)
                                 continue
                             ack = self._exchange(command, profile)
-                            if status_of(ack) != "OK":
+                            ack_text = ack.decode("ascii", errors="replace").replace("\\r", "\\n").strip().upper()
+                            ack_ok = status_of(ack) == "OK" or (profile.key == "jdy31" and "+OK" in ack_text.split())
+                            if not ack_ok:
                                 raise RuntimeError("Write was not acknowledged with OK. State is UNKNOWN; read again before retrying")
+                            if query["edit"].get("power_cycle") and profile.key == "jdy31":
+                                self.emit("change", profile=profile.key, qid=query["id"],
+                                          status="pending_power_cycle", old=old, new=value,
+                                          power_cycle=True)
+                                continue
                             actual_reply = self._query(profile, query)
                             actual = response_value(actual_reply, query.get("prefix", ""))
                             success = actual == value
@@ -359,7 +372,8 @@ class ModuleTab:
             messagebox.showwarning("Writes locked", "Enable configuration writes in the top toolbar first")
             return
         danger = query["edit"].get("hint", "Configuration may change the module behavior")
-        prompt = (f"Module: {self.profile.title}\n\nAT command: {command}\n\n{danger}\n\n"
+        command_shown = "[PIN WRITE REDACTED]" if qid == "pin" else command
+        prompt = (f"Module: {self.profile.title}\n\nAT command: {command_shown}\n\n{danger}\n\n"
                   "A read-before-write and readback check will be performed.\n\nSend this configuration change?")
         if messagebox.askyesno("Confirm module configuration WRITE", prompt, icon="warning"):
             self.app.action("write", self.profile, qid=qid, value=value)
@@ -541,11 +555,13 @@ class ATStudio:
                     if tab is not None:
                         tab.update_query(data["qid"], data["reply"])
                 elif kind == "change":
-                    self.log_line("WRITE: " + str(data))
+                    self.log_line("WRITE: " + str({**data, **({"old":"[REDACTED]","new":"[REDACTED]","actual":"[REDACTED]"} if data.get("qid")=="pin" else {})}))
                     state = data["status"]
                     if state == "verified":
                         messagebox.showinfo("Configuration", "Write acknowledged and readback VERIFIED."
                                             + (" Power-cycle the module, then adjust host baud." if data.get("power_cycle") else ""))
+                    elif state == "pending_power_cycle":
+                        messagebox.showwarning("Configuration", "Write acknowledged, but persistence is PENDING power-cycle and re-read. Update PC COM baud after restart.")
                     elif state == "unchanged":
                         messagebox.showinfo("Configuration", "Current module value already matches the requested value. No write was sent.")
                     else:
