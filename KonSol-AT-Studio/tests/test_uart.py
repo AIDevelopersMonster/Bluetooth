@@ -315,6 +315,34 @@ class UartTests(unittest.TestCase):
             self.assertTrue(any(k == "change" and d.get("status") == "pending_power_cycle"
                                 for k, d in seen))
 
+    def test_factory_restore_sends_command_without_db_or_snapshot(self):
+        fake = FakeSerial([
+            b"+VERSION=JDY-31A-V2.241,Bluetooth V3.0+BLE\r\n",
+            b"+OK\r\n",
+        ])
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db = root / "test-inspections.sqlite3"
+            inbox, outbox = queue.Queue(), queue.Queue()
+            worker = SerialWorker(inbox, outbox, root, db_path=db)
+            profile = parse_profile(ROOT / "modules" / "jdy31")
+            worker.port, worker.connected_profile = fake, profile.key
+            worker.start()
+            inbox.put(("factory", profile, {}))
+            events = []
+            while True:
+                kind, payload = outbox.get(timeout=6)
+                events.append((kind, payload))
+                if kind == "done":
+                    break
+            inbox.put(("stop", None, {}))
+            worker.join(timeout=2)
+            self.assertFalse(db.exists())
+            self.assertFalse((root / "snapshots").exists())
+        self.assertEqual(fake.writes, [b"AT+VERSION\r\n", b"AT+DEFAULT\r\n"])
+        self.assertTrue(any(kind == "factory" for kind, _ in events))
+        self.assertFalse(any(kind == "error" for kind, _ in events))
+
     def test_no_factory_command_on_real_profile(self):
         fake = FakeSerial([])
         with tempfile.TemporaryDirectory() as temp:
