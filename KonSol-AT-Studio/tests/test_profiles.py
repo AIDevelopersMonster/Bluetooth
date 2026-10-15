@@ -24,8 +24,9 @@ class ProfileTests(unittest.TestCase):
 
     def test_jdy31_profile_is_read_only(self):
         p = parse_profile(BASE / "modules" / "jdy31")
-        self.assertEqual([q["command"] for q in p.queries],
+        self.assertEqual([q["command"] for q in p.queries if not q.get("probe_only")],
                          ["AT+VERSION", "AT+LADDR", "AT+NAME", "AT+BAUD", "AT+PIN"])
+        self.assertEqual(len([q for q in p.queries if q.get("probe_only")]), 11)
         self.assertEqual(p.baud, 9600)
         self.assertEqual(p.ending, b"\r\n")
         self.assertFalse(p.verified_reads)
