@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "id": "jdy31",
-  "title": "JDY-31 (Bluetooth 3.0 SPP)",
+  "title": "JDY-31A V2.241 (SPP + BLE)",
   "baud": 9600,
   "ending": "CRLF",
   "timeout_ms": 800,
-  "verified_reads": false,
-  "notes": "REFERENCE / NOT YET BENCH-VERIFIED. JDY-31 reads use AT+TOKEN (no '?') and normally return +TOKEN=value WITHOUT trailing OK. Only read-only queries are enabled. On the pictured backplane: VCC 3.6-6 V, UART logic 3.3 V. Factory reset and writes are disabled. PIN can appear in the private session log and snapshots.",
+  "verified_reads": true,
+  "notes": "JDY-31A V2.241: confirmed five AT UART reads, name write/readback, operator-tested BAUD and PIN changes. Physical factory reset AT+DEFAULT restored JDY-33-SPP / BAUD=4 (9600) / PIN=1234; earlier JDY-31 was a MANUALLY chosen name, never factory. AT+RESET is a documented software restart, not a factory restore; operator tested AT+RESET as a software restart. Both operations are version-gated and separately confirmed. BLE GATT not managed in this UART tab.",
   "reference": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
   "queries": [
     {
@@ -25,20 +25,72 @@
       "id": "name",
       "label": "Bluetooth name",
       "command": "AT+NAME",
-      "prefix": "+NAME="
+      "prefix": "+NAME=",
+      "edit": {
+        "template": "AT+NAME{value}",
+        "pattern": "[A-Za-z0-9 _.\\-]{1,18}",
+        "risk": "medium",
+        "require_version_prefix": "JDY-31A-V2.241,",
+        "hint": "Physically verified on JDY-31A V2.241: AT+NAME{value} returned +OK and matched UART readback (15 Oct 2026). Persistence across power-cycle not yet tested. Re-pairing may be required."
+      },
+      "unknown_values": [
+        "?"
+      ]
     },
     {
       "id": "baud",
       "label": "UART baud index",
       "command": "AT+BAUD",
-      "prefix": "+BAUD="
+      "prefix": "+BAUD=",
+      "edit": {
+        "template": "AT+BAUD{value}",
+        "pattern": "[4-9]",
+        "risk": "high",
+        "power_cycle": true,
+        "require_version_prefix": "JDY-31A-V2.241,",
+        "choices": {
+          "4": "9600",
+          "5": "19200",
+          "6": "38400",
+          "7": "57600",
+          "8": "115200",
+          "9": "128000"
+        },
+        "hint": "Changes UART baud index (4..9) for the next session. Confirm before sending: after power-cycle, change the PC COM baud to the selected rate; immediate readback may be unavailable."
+      }
     },
     {
       "id": "pin",
       "label": "Pairing PIN (private)",
       "command": "AT+PIN",
-      "prefix": "+PIN="
+      "prefix": "+PIN=",
+      "edit": {
+        "template": "AT+PIN{value}",
+        "pattern": "[0-9]{4}",
+        "risk": "high",
+        "require_version_prefix": "JDY-31A-V2.241,",
+        "hint": "Changes the SPP pairing PIN, exactly four decimal digits. Re-pair bonded devices if needed. Values must not be published."
+      }
     }
   ],
-  "factory_reset": null
+  "factory_reset": {
+    "command": "AT+DEFAULT",
+    "source_url": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
+    "verified_on_hardware": true,
+    "require_version_prefix": "JDY-31A-V2.241,",
+    "expected_baud_after_reset": 9600,
+    "expected_values": {
+      "name": "JDY-33-SPP",
+      "baud": "4",
+      "pin": "1234"
+    },
+    "evidence": "2026-10-15: operator issued AT+DEFAULT (+OK); after reset readback at 9600: +NAME=JDY-33-SPP, +BAUD=4, +PIN=1234. This is a result for this firmware/physical unit, not a model name change."
+  },
+  "soft_reset": {
+    "command": "AT+RESET",
+    "source_url": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
+    "verified_on_hardware": true,
+    "require_version_prefix": "JDY-31A-V2.241,",
+    "notes": "AT+RESET was tested by operator as software restart; exact timing and persistence not captured in logs. Separate from verified AT+DEFAULT."
+  }
 }

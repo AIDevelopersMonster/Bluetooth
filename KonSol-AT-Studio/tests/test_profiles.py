@@ -24,13 +24,15 @@ class ProfileTests(unittest.TestCase):
 
     def test_jdy31_profile_is_read_only(self):
         p = parse_profile(BASE / "modules" / "jdy31")
-        self.assertEqual([q["command"] for q in p.queries],
+        self.assertEqual([q["command"] for q in p.queries if not q.get("probe_only")],
                          ["AT+VERSION", "AT+LADDR", "AT+NAME", "AT+BAUD", "AT+PIN"])
+        self.assertEqual(len([q for q in p.queries if q.get("probe_only")]), 0)
         self.assertEqual(p.baud, 9600)
         self.assertEqual(p.ending, b"\r\n")
-        self.assertFalse(p.verified_reads)
-        self.assertFalse(p.setters)
-        self.assertIsNone(p.factory_reset)
+        self.assertTrue(p.verified_reads)
+        self.assertEqual(len(p.setters), 3)
+        self.assertEqual(p.factory_reset["command"], "AT+DEFAULT")
+        self.assertEqual(p.soft_reset["command"], "AT+RESET")
 
     def test_queries_match_physical_at_read_set(self):
         self.assertEqual([x["command"] for x in self.dual.queries], [
@@ -59,7 +61,13 @@ class ProfileTests(unittest.TestCase):
 
     def test_factory_reset_is_blocked_for_both_real_profiles(self):
         for p in discover_profiles(BASE / "modules")[0]:
-            self.assertIsNone(p.factory_reset)
+            if p.key == "jdy31":
+                self.assertEqual(p.factory_reset["command"], "AT+DEFAULT")
+                self.assertTrue(p.factory_reset["verified_on_hardware"])
+                self.assertEqual(p.soft_reset["command"], "AT+RESET")
+            else:
+                self.assertIsNone(p.factory_reset)
+                self.assertIsNone(p.soft_reset)
 
     def test_new_module_folder_autoloaded(self):
         with tempfile.TemporaryDirectory() as d:

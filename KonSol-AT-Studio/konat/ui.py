@@ -10,7 +10,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
-from .profiles import discover_profiles, response_value, status_of, validate_setting
+from .profiles import discover_profiles, declared_device_actions, response_value, status_of, validate_setting
 from .serial_io import AtTransport
 from .inspection_capture import examine_queries, timestamp_utc
 from .inspection_registry import (DEFAULT_DB, add_inspection, normalize_mac,
@@ -41,10 +41,10 @@ class SerialWorker(threading.Thread):
         self.outbox.put((event, kw))
 
     def _exchange(self, command, profile):
-        self.emit("log", message=f"TX {command}")
+        self.emit("log", message=f"TX {'[PIN WRITE REDACTED]' if profile.key == 'jdy31' and command.startswith('AT+PIN') and command != 'AT+PIN' else command}")
         reply = AtTransport(self.port).exchange(command, profile.ending, profile.timeout)
         shown = reply.decode("utf-8", errors="backslashreplace").replace("\r", "\\r").replace("\n", "\\n")
-        self.emit("log", message=f"RX {shown if reply else '[TIMEOUT]'}")
+        self.emit("log", message=f"RX {'[PIN RESPONSE REDACTED]' if profile.key == 'jdy31' and command.startswith('AT+PIN') else (shown if reply else '[TIMEOUT]')}")
         return reply
 
     def _query(self, profile, query):
@@ -55,6 +55,8 @@ class SerialWorker(threading.Thread):
     def _snapshot(self, profile, required_all=True):
         responses = []
         for query in profile.queries:
+            if query.get("probe_only"):
+                continue
             reply = self._query(profile, query)
             responses.append({
                 "id": query["id"], "command": query["command"],
@@ -84,7 +86,7 @@ class SerialWorker(threading.Thread):
         """Obtain module-reported MAC from the current live UART session."""
         query = profile.by_id("address")
         reply = self._query(profile, query)
-        if status_of(reply) != "OK":
+        if status_of(reply) not in ("OK", "RESPONSE"):
             raise RuntimeError("Cannot read the module address; no untraceable WRITE is allowed")
         value = response_value(reply, query.get("prefix", ""))
         try:
@@ -96,6 +98,8 @@ class SerialWorker(threading.Thread):
         start = timestamp_utc()
         replies = {}
         for query in profile.queries:
+            if query.get("probe_only"):
+                continue
             replies[query["id"]] = self._query(profile, query)
         outcome = examine_queries(profile, replies)
         if outcome["mac"] is None:
@@ -165,7 +169,8 @@ class SerialWorker(threading.Thread):
                             self._query(profile, profile.by_id(kw["qid"]))
                         elif action == "read_all":
                             for query in profile.queries:
-                                self._query(profile, query)
+                                if not query.get("probe_only"):
+                                    self._query(profile, query)
                         elif action == "snapshot":
                             self._snapshot(profile)
                         elif action == "inspect":
@@ -176,20 +181,33 @@ class SerialWorker(threading.Thread):
                                 raise RuntimeError("This setter is disabled in the module profile")
                             value = kw["value"]
                             command = validate_setting(query, value)
+                            if profile.key == "jdy31":
+                                version_reply = self._query(profile, profile.by_id("version"))
+                                version_value = response_value(version_reply, profile.by_id("version").get("prefix", ""))
+                                expected = query["edit"].get("require_version_prefix")
+                                if not expected or not version_value or not version_value.startswith(expected):
+                                    raise RuntimeError("JDY-31A firmware mismatch; WRITE NOT SENT")
                             mac, address_command = self._identity(profile)
                             # Never write without an initial response for this exact field.
                             previous = self._query(profile, query)
                             old = response_value(previous, query.get("prefix", ""))
                             if old is None or status_of(previous) == "ERROR":
                                 raise RuntimeError("Pre-write readback failed. Configuration was NOT changed")
-                            self.emit("log", message=f"PRE-WRITE {query['label']}: {old}")
+                            self.emit("log", message=f"PRE-WRITE {query['label']}: {'[REDACTED]' if query['id'] == 'pin' else old}")
                             if old == value:
                                 self.emit("change", profile=profile.key, qid=query["id"],
                                           status="unchanged", old=old, new=value)
                                 continue
                             ack = self._exchange(command, profile)
-                            if status_of(ack) != "OK":
+                            ack_text = ack.decode("ascii", errors="replace").replace("\\r", "\\n").strip().upper()
+                            ack_ok = status_of(ack) == "OK" or (profile.key == "jdy31" and "+OK" in ack_text.split())
+                            if not ack_ok:
                                 raise RuntimeError("Write was not acknowledged with OK. State is UNKNOWN; read again before retrying")
+                            if query["edit"].get("power_cycle") and profile.key == "jdy31":
+                                self.emit("change", profile=profile.key, qid=query["id"],
+                                          status="pending_power_cycle", old=old, new=value,
+                                          power_cycle=True)
+                                continue
                             actual_reply = self._query(profile, query)
                             actual = response_value(actual_reply, query.get("prefix", ""))
                             success = actual == value
@@ -200,15 +218,26 @@ class SerialWorker(threading.Thread):
                                       status="verified" if success else "unverified",
                                       old=old, new=value, actual=actual,
                                       power_cycle=query["edit"].get("power_cycle", False))
-                        elif action == "factory":
-                            reset = profile.factory_reset
-                            if reset is None or not reset.get("verified_on_hardware"):
-                                raise RuntimeError("Factory reset command is not verified for this module")
-                            _, snapshot_complete = self._snapshot(profile)
-                            if not snapshot_complete:
-                                raise RuntimeError("Pre-reset snapshot incomplete; factory reset NOT SENT")
-                            ack = self._exchange(reset["command"], profile)
-                            self.emit("factory", status=status_of(ack))
+                        elif action in ("restart", "factory"):
+                            field = "soft_reset" if action == "restart" else "factory_reset"
+                            config = getattr(profile, field)
+                            if config is None or not config.get("verified_on_hardware"):
+                                raise RuntimeError(f"{field} unavailable on this module profile")
+                            signature = config.get("require_version_prefix")
+                            if signature:
+                                version = profile.by_id("version")
+                                reply = self._query(profile, version)
+                                actual = response_value(reply, version.get("prefix", ""))
+                                if not actual or not actual.startswith(signature):
+                                    raise RuntimeError("Firmware mismatch: device control NOT SENT")
+                            if action == "factory":
+                                _, complete = self._snapshot(profile)
+                                if not complete:
+                                    raise RuntimeError("Pre-reset snapshot incomplete: command NOT SENT")
+                            ack = self._exchange(config["command"], profile)
+                            ack_state = "+OK" if b"+OK" in ack.upper() else status_of(ack)
+                            self.emit(action, status=ack_state,
+                                      expected_baud=config.get("expected_baud_after_reset"))
                         else:
                             raise RuntimeError(f"Unknown worker action: {action}")
                 except Exception as exc:
@@ -245,7 +274,7 @@ class ModuleTab:
         f.rowconfigure(1, weight=1)
         notes = ttk.Label(f, text=self.profile.notes, wraplength=1090, justify="left")
         notes.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(10, 7))
-        left = ttk.LabelFrame(f, text="AT Queries (read only)", padding=10)
+        left = ttk.LabelFrame(f, text="AT Queries (read-only; probes manual)", padding=10)
         left.grid(row=1, column=0, sticky="nsew", padx=(10, 5), pady=4)
         left.rowconfigure(0, weight=1)
         left.columnconfigure(0, weight=1)
@@ -269,7 +298,7 @@ class ModuleTab:
         controls = ttk.Frame(left)
         controls.grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0))
         ttk.Button(controls, text="Read selected", command=self.read_selected).pack(side="left", padx=(0, 5))
-        ttk.Button(controls, text="Read ALL", command=lambda:self.app.action("read_all", self.profile)).pack(side="left", padx=5)
+        ttk.Button(controls, text="Read core", command=lambda:self.app.action("read_all", self.profile)).pack(side="left", padx=5)
         ttk.Button(controls, text="Save snapshot JSON", command=lambda:self.app.action("snapshot", self.profile)).pack(side="left", padx=5)
         ttk.Button(controls, text="Inspect & record", command=lambda:self.app.action("inspect", self.profile)).pack(side="left", padx=5)
 
@@ -305,23 +334,27 @@ class ModuleTab:
         info = ttk.Label(right, text="Changes are never sent automatically. Each change is confirmed,\npre-read, acknowledged and read back; UART baud changes need a power cycle.",
                          wraplength=610, justify="left")
         info.grid(row=1, column=0, sticky="ew", pady=(10, 8))
-        reset = ttk.LabelFrame(right, text="Factory defaults", padding=10)
-        reset.grid(row=2, column=0, sticky="ew")
-        if self.profile.factory_reset is None:
-            self.factory_button = ttk.Button(reset, text="Factory RESET: not documented")
-            self.factory_button.state(["disabled"])
-            ttk.Label(reset, text="No documented factory-reset command for this profile.\nNo guessed AT+DEFAULT / AT+RESET will be transmitted.",
-                      justify="left", wraplength=580).pack(anchor="w", pady=(6, 0))
-        else:
-            self.factory_button = ttk.Button(reset, text="Restore FACTORY defaults...", command=self.app.factory_reset)
-            ttk.Label(reset, text="Requires a verified command, double confirmation and a pre-reset snapshot.",
-                      wraplength=570).pack(anchor="w", pady=(6, 0))
-        self.factory_button.pack(anchor="w")
+        controls = declared_device_actions(self.profile)
+        if controls:
+            device = ttk.LabelFrame(right, text="Device control", padding=10)
+            device.grid(row=2, column=0, sticky="ew")
+            if "soft_reset" in controls:
+                ttk.Button(device, text="Restart module",
+                           command=self.app.soft_restart).pack(anchor="w", pady=3)
+            if "factory_reset" in controls:
+                ttk.Button(device, text="Restore factory defaults...",
+                           command=self.app.factory_reset).pack(anchor="w", pady=3)
+                ttk.Label(device, text="Current configuration is saved before restoring. Confirm twice.",
+                          wraplength=570).pack(anchor="w", pady=3)
 
     def read_selected(self):
         selection = self.tree.selection()
         if not selection:
             messagebox.showinfo("Selection", "Select a query in the left table first")
+            return
+        q = self.profile.by_id(selection[0])
+        if q.get("probe_only") and not messagebox.askyesno("Unverified JDY-31A query",
+                f"{q['command']} is unverified on this firmware. Send this ONE query?"):
             return
         self.app.action("query", self.profile, qid=selection[0])
 
@@ -350,7 +383,8 @@ class ModuleTab:
             messagebox.showwarning("Writes locked", "Enable configuration writes in the top toolbar first")
             return
         danger = query["edit"].get("hint", "Configuration may change the module behavior")
-        prompt = (f"Module: {self.profile.title}\n\nAT command: {command}\n\n{danger}\n\n"
+        command_shown = "[PIN WRITE REDACTED]" if qid == "pin" else command
+        prompt = (f"Module: {self.profile.title}\n\nAT command: {command_shown}\n\n{danger}\n\n"
                   "A read-before-write and readback check will be performed.\n\nSend this configuration change?")
         if messagebox.askyesno("Confirm module configuration WRITE", prompt, icon="warning"):
             self.app.action("write", self.profile, qid=qid, value=value)
@@ -484,12 +518,25 @@ class ATStudio:
         if action not in ("connect", "disconnect") and self.connected_profile != profile.key:
             messagebox.showwarning("Wrong module tab", "Disconnect and reconnect to select a different AT profile")
             return
-        if action == "write" and not self.writes_enabled.get():
+        if action in ("write", "factory") and not self.writes_enabled.get():
             messagebox.showwarning("Writes locked", "Enable AT WRITES first")
+            return
+        if action not in ("connect", "disconnect") and self.selected_tab().profile.key != profile.key:
+            messagebox.showwarning("Wrong active tab", "Select the connected module tab before sending commands")
             return
         self.busy = True
         self.conn_status.set("Working...")
         self.queue_in.put((action, profile, kwargs))
+
+    def soft_restart(self):
+        tab = self.selected_tab()
+        if tab is None or tab.profile.soft_reset is None:
+            return
+        control = tab.profile.soft_reset
+        if not messagebox.askyesno("Restart Bluetooth module",
+                f"Send {control['command']} to {tab.profile.title}? Active Bluetooth connections may disconnect."):
+            return
+        self.action("restart", tab.profile)
 
     def factory_reset(self):
         tab = self.selected_tab()
@@ -532,11 +579,13 @@ class ATStudio:
                     if tab is not None:
                         tab.update_query(data["qid"], data["reply"])
                 elif kind == "change":
-                    self.log_line("WRITE: " + str(data))
+                    self.log_line("WRITE: " + str({**data, **({"old":"[REDACTED]","new":"[REDACTED]","actual":"[REDACTED]"} if data.get("qid")=="pin" else {})}))
                     state = data["status"]
                     if state == "verified":
                         messagebox.showinfo("Configuration", "Write acknowledged and readback VERIFIED."
                                             + (" Power-cycle the module, then adjust host baud." if data.get("power_cycle") else ""))
+                    elif state == "pending_power_cycle":
+                        messagebox.showwarning("Configuration", "Write acknowledged, but persistence is PENDING power-cycle and re-read. Update PC COM baud after restart.")
                     elif state == "unchanged":
                         messagebox.showinfo("Configuration", "Current module value already matches the requested value. No write was sent.")
                     else:
@@ -550,6 +599,8 @@ class ATStudio:
                         item["reported_mac"], data["test_code"]))
                     messagebox.showinfo("Inspection recorded", "Record #{} | {} | {}\nStored privately in: {}".format(
                         item["id"], item["module_code"], item["result"], item["database"]))
+                elif kind == "restart":
+                    messagebox.showinfo("Restart sent", "Restart command result: " + data["status"] + ". Re-read settings to verify they were retained.")
                 elif kind == "factory":
                     messagebox.showwarning("Factory reset result", f"Reset command reply: {data['status']}.\n"
                                            "Check module settings and UART baud after restart; do not assume restore succeeded.")

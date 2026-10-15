@@ -17,10 +17,15 @@ def examine_queries(profile, replies: dict[str, bytes]) -> dict:
     mac = None
     firmware = None
     for q in profile.queries:
+        if q.get("probe_only"):
+            continue
         reply = replies.get(q["id"], b"")
         state = status_of(reply)
         value = response_value(reply, q.get("prefix", ""))
         ok = (state == "OK" or (profile.key == "jdy31" and state == "RESPONSE" and bool(value))) and (not q.get("prefix") or bool(value))
+        unknown = bool(ok and value in q.get("unknown_values", []))
+        if unknown:
+            ok = False
         if q["id"] == "address" and ok:
             try:
                 mac = normalize_mac(value)
@@ -29,7 +34,7 @@ def examine_queries(profile, replies: dict[str, bytes]) -> dict:
         if q["id"] == "version" and ok:
             firmware = value
         record = {"qid": q["id"], "command": q["command"], "status": "PASS" if ok else
-                  ("INCOMPLETE" if state == "TIMEOUT" else "FAIL"),
+                  ("INCOMPLETE" if state == "TIMEOUT" or unknown else "FAIL"),
                   "response_status": state, "value": value}
         if q["id"] != "pin":
             record["response_hex"] = reply.hex().upper()

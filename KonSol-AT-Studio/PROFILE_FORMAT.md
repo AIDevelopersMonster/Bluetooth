@@ -88,3 +88,31 @@ complete read snapshot is not a guarantee of a recoverable hardware setup.
 Each module is isolated. Profiles can be added, removed or updated without
 changing the Python GUI/serial core. An incompatible protocol syntax should
 use a new schema version and a deliberate core update, not guesswork.
+
+## Optional device control buttons
+
+The GUI shows a **Restart module** button only if `soft_reset` exists as a validated object in the selected module's `profile.json`. It shows **Restore factory defaults** only if `factory_reset` exists. If both are absent/null, the entire Device control section is hidden. Do not copy command tokens across device families.
+
+Both command blocks require `command`, an HTTPS `source_url`, and `verified_on_hardware: true`. Optional `require_version_prefix` causes a live read of the module's `version` query before sending, blocking a mismatched firmware. The factory action requires Enable AT WRITES, confirmation twice and a complete pre-reset snapshot. Restart requires user confirmation and does not call factory restoration.
+
+Example only (replace with tested commands from the target device; do not assume these work on other modules):
+
+```json
+{
+  "soft_reset": {
+    "command": "AT+RESET",
+    "source_url": "https://vendor.example/manual.pdf",
+    "verified_on_hardware": true,
+    "require_version_prefix": "EXAMPLE-V1,"
+  },
+  "factory_reset": {
+    "command": "AT+DEFAULT",
+    "source_url": "https://vendor.example/manual.pdf",
+    "verified_on_hardware": true,
+    "require_version_prefix": "EXAMPLE-V1,"
+    "expected_baud_after_reset": 9600
+  }
+}
+```
+
+The two controls are declarative: no module name is hard-coded into the GUI or worker. Disabled-but-visible buttons for missing commands are intentionally avoided.

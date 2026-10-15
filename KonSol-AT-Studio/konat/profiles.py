@@ -31,6 +31,7 @@ class Profile:
     verified_reads: bool
     queries: tuple[dict, ...]
     factory_reset: dict | None
+    soft_reset: dict | None
 
     @property
     def setters(self) -> tuple[dict, ...]:
@@ -114,21 +115,49 @@ def parse_profile(folder: Path) -> Profile:
             if type(edit.get("power_cycle", False)) is not bool:
                 raise ProfileError(f"{path}: power_cycle must be bool")
         checked.append(query)
-    reset = document.get("factory_reset")
-    if reset is not None:
-        if not isinstance(reset, dict):
-            raise ProfileError(f"{path}: factory_reset must be object or null")
-        command = _string(reset, "command", 100)
+    def parse_device_action(field: str) -> dict | None:
+        control = document.get(field)
+        if control is None:
+            return None
+        if not isinstance(control, dict):
+            raise ProfileError(f"{path}: {field} must be an object or null")
+        command = _string(control, "command", 100)
         if not command.isascii() or not _AT_RESET.fullmatch(command):
-            raise ProfileError(f"{path}: invalid reset command")
-        if reset.get("verified_on_hardware") is not True or not reset.get("source_url"):
-            raise ProfileError(f"{path}: factory reset requires explicit hardware verification and documented source_url")
+            raise ProfileError(f"{path}: invalid {field} command")
+        source = _string(control, "source_url", 512)
+        if not source.startswith("https://"):
+            raise ProfileError(f"{path}: {field} needs an HTTPS source_url")
+        if control.get("verified_on_hardware") is not True:
+            raise ProfileError(f"{path}: {field} requires verified_on_hardware=true")
+        prefix = control.get("require_version_prefix")
+        if prefix is not None:
+            if (not isinstance(prefix, str) or not prefix or len(prefix) > 100
+                    or not prefix.isascii() or any(ch in prefix for ch in "\r\n")):
+                raise ProfileError(f"{path}: invalid {field} firmware signature")
+            if not any(q["id"] == "version" and q.get("prefix") for q in checked):
+                raise ProfileError(f"{path}: {field} firmware guard requires version read")
+        if "expected_baud_after_reset" in control:
+            expected_baud = control["expected_baud_after_reset"]
+            if type(expected_baud) is not int or not 1200 <= expected_baud <= 4000000:
+                raise ProfileError(f"{path}: invalid {field} default baud")
+        return control
+
+    reset = parse_device_action("factory_reset")
+    restart = parse_device_action("soft_reset")
+    if reset and restart and reset["command"] == restart["command"]:
+        raise ProfileError(f"{path}: restart and factory restore must be distinct commands")
     return Profile(
         key=key, title=title, folder=folder, baud=baud, ending=ending,
         timeout=timeout_ms / 1000.0, notes=document.get("notes", ""),
         verified_reads=document.get("verified_reads") is True,
-        queries=tuple(checked), factory_reset=reset,
+        queries=tuple(checked), factory_reset=reset, soft_reset=restart,
     )
+
+
+def declared_device_actions(profile: Profile) -> tuple[str, ...]:
+    """Only controls present in the module's validated profile become UI buttons."""
+    return tuple(name for name in ("soft_reset", "factory_reset")
+                 if getattr(profile, name) is not None)
 
 
 def discover_profiles(root: Path) -> tuple[list[Profile], list[str]]:
