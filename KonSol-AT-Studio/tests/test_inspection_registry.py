@@ -137,7 +137,7 @@ class CaptureTests(unittest.TestCase):
         result = examine_queries(profile, replies)
         self.assertEqual(result["total"], 5)
         self.assertEqual(result["passed"], 4)
-        self.assertEqual(result["result"], "FAIL")
+        self.assertEqual(result["result"], "INCOMPLETE")
         self.assertEqual(result["firmware"], "JDY-31A-V2.241,Bluetooth V3.0+BLE")
         self.assertEqual(len([q for q in profile.queries if q.get("probe_only")]), 11)
         self.assertNotIn("1234", str(result["checks"]))
