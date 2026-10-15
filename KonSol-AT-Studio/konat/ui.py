@@ -220,7 +220,7 @@ class SerialWorker(threading.Thread):
                                       power_cycle=query["edit"].get("power_cycle", False))
                         elif action == "factory":
                             reset = profile.factory_reset
-                            if reset is None or not reset.get("verified_on_hardware"):
+                            if reset is None or not (reset.get("verified_on_hardware") or (profile.key == "jdy31" and reset.get("experimental"))):
                                 raise RuntimeError("Factory reset command is not verified for this module")
                             _, snapshot_complete = self._snapshot(profile)
                             if not snapshot_complete:
