@@ -1,25 +1,17 @@
-# JDY-31A V2.241 laboratory reference
+# JDY-31A V2.241: UART/SPP configuration
 
-Physical identification (15 Oct 2026, UART): `+VERSION=JDY-31A-V2.241,Bluetooth V3.0+BLE`; default UART 9600 8N1 CRLF; `+BAUD=4`; address read through `AT+LADDR`. Initially `AT+NAME` returned `+NAME=?`, and the phone displayed `?`. After the operator renamed the module, another AT+NAME read returned `+NAME=JDY-31`. This supports AT+NAME as a read command, not a renaming instruction. The action that originally introduced '?' remains unknown (possibly a separate connection/UI operation). PIN was read but should not be published.
+Physical evidence: AT+VERSION, AT+LADDR, AT+NAME, AT+BAUD and AT+PIN all read on this module. The old +NAME=? was a stored value, later +NAME=JDY-31. Configuration writes are **not yet physically validated**.
 
-## Command evidence classes
+This profile intentionally exposes only five UART commands. The candidate BLE/related-model commands have been removed; BLE GATT is a different transport/connection mode and should be developed and validated separately, not confused with UART AT.
 
-- **Measured on this firmware:** AT+VERSION, AT+LADDR, AT+NAME, AT+BAUD, AT+PIN. All five, but include the now-verified AT+NAME, are in the **Read core / Inspect** set. No setters. No setters.
-- **Candidates for manual, opt-in investigation:** AT, AT+ENLOG, AT+STAT, AT+NAMB, AT+TYPE, AT+UUIDLEN, AT+SVRUUID, AT+CHRUUID, AT+CRXUUID, AT+UARTMODE, AT+STTS. Candidate syntax is drawn from related-module documents and must **not** be interpreted as a verified JDY-31A V2.241 command list. Their actions may differ across firmwares; do not bulk transmit. GUI prompts before an individual experimental query.
-- **Forbidden in this profile:** configuration setters, factory reset, AT+RESET, AT+DISC, AT+SLEEP.
+The legacy JDY-31 manual documents setting name, PIN and baud using AT+NAME{value}, AT+PIN{value}, AT+BAUD{index}, without =. These are provisionally enabled with firmware gate JDY-31A-V2.241, current-value pre-read, explicit confirmation and response checking. Baud change is pending a power-cycle and host baud adjustment, not automatically verified.
 
-The older JDY-31 manual lists fewer commands; **it does not fully document this firmware**. Related JDY-33 documents help form hypotheses but are not proof.
+The first write should be a reversible name change, not PIN or baud. Record readback and verify over Bluetooth. If +OK differs on this firmware, stop and share the response.
 
-## Local PDFs
+## Local documentation
 
-Run `./download-references.ps1` in PowerShell from this directory. Files go to **untracked** `references/` beside this README; a matching `.source.json` records the URL and SHA-256. They are deliberately excluded from Git to avoid republishing vendor copyrighted PDFs and to avoid asserting an exact firmware match. If a vendor URL is unreachable, the script reports failure; it never treats an HTML error page as a PDF.
+Run .\download-references.ps1 in PowerShell. The local references/ directory is gitignored, and each PDF gets a .source.json provenance record. These documents relate to older JDY-31 and JDY-33, not a confirmed manufacturer datasheet for V2.241.
 
 Sources:
-- Legacy JDY-31 PDF: https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf
-- Related JDY-33 FCC manual: https://fccid.io/2AXM8-JDY-33/User-Manual/15-JDY-33-UserMan-US-r2-4936883.pdf
-
-## Protocol note
-
-`Read core`, snapshots and SQLite incoming inspections **ignore opt-in probes, including AT+NAME** so unsupported commands cannot generate false FAIL statuses. `+NAME=?` is classified as an incomplete name value if encountered, while the observed `+NAME=JDY-31` is a successful read. Neither response proves which earlier UI action changed the name.
-
-Do not publish session logs, inspection database, real device MACs or pairing PINs.
+- https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf
+- https://fccid.io/2AXM8-JDY-33/User-Manual/15-JDY-33-UserMan-US-r2-4936883.pdf
