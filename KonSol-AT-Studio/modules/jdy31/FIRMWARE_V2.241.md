@@ -1,10 +1,10 @@
 # JDY-31A V2.241 laboratory reference
 
-Physical identification (15 Oct 2026, UART): `+VERSION=JDY-31A-V2.241,Bluetooth V3.0+BLE`; default UART 9600 8N1 CRLF; `+BAUD=4`; address read through `AT+LADDR`. Following `AT+NAME`, the module now appears to the operator as Bluetooth name `?`. The command may have changed the stored name; no causal proof yet, so it is quarantined from automatic operation. PIN was read but should not be published.
+Physical identification (15 Oct 2026, UART): `+VERSION=JDY-31A-V2.241,Bluetooth V3.0+BLE`; default UART 9600 8N1 CRLF; `+BAUD=4`; address read through `AT+LADDR`. Initially `AT+NAME` returned `+NAME=?`, and the phone displayed `?`. After the operator renamed the module, another AT+NAME read returned `+NAME=JDY-31`. This supports AT+NAME as a read command, not a renaming instruction. The action that originally introduced '?' remains unknown (possibly a separate connection/UI operation). PIN was read but should not be published.
 
 ## Command evidence classes
 
-- **Measured on this firmware:** AT+VERSION, AT+LADDR, AT+NAME, AT+BAUD, AT+PIN. Only VERSION, LADDR, BAUD and PIN remain in the **Read core / Inspect** set. `AT+NAME` is a manual opt-in test subject with a confirmation. No setters.
+- **Measured on this firmware:** AT+VERSION, AT+LADDR, AT+NAME, AT+BAUD, AT+PIN. All five, but include the now-verified AT+NAME, are in the **Read core / Inspect** set. No setters. No setters.
 - **Candidates for manual, opt-in investigation:** AT, AT+ENLOG, AT+STAT, AT+NAMB, AT+TYPE, AT+UUIDLEN, AT+SVRUUID, AT+CHRUUID, AT+CRXUUID, AT+UARTMODE, AT+STTS. Candidate syntax is drawn from related-module documents and must **not** be interpreted as a verified JDY-31A V2.241 command list. Their actions may differ across firmwares; do not bulk transmit. GUI prompts before an individual experimental query.
 - **Forbidden in this profile:** configuration setters, factory reset, AT+RESET, AT+DISC, AT+SLEEP.
 
@@ -20,6 +20,6 @@ Sources:
 
 ## Protocol note
 
-`Read core`, snapshots and SQLite incoming inspections **ignore opt-in probes, including AT+NAME** so unsupported commands cannot generate false FAIL statuses. `+NAME=?` is not scored by automated incoming inspection; observed phone advertising name `?` motivates a controlled before/after test.
+`Read core`, snapshots and SQLite incoming inspections **ignore opt-in probes, including AT+NAME** so unsupported commands cannot generate false FAIL statuses. `+NAME=?` is classified as an incomplete name value if encountered, while the observed `+NAME=JDY-31` is a successful read. Neither response proves which earlier UI action changed the name.
 
 Do not publish session logs, inspection database, real device MACs or pairing PINs.
