@@ -10,7 +10,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
-from .profiles import discover_profiles, response_value, status_of, validate_setting
+from .profiles import discover_profiles, declared_device_actions, response_value, status_of, validate_setting
 from .serial_io import AtTransport
 from .inspection_capture import examine_queries, timestamp_utc
 from .inspection_registry import (DEFAULT_DB, add_inspection, normalize_mac,
@@ -218,31 +218,26 @@ class SerialWorker(threading.Thread):
                                       status="verified" if success else "unverified",
                                       old=old, new=value, actual=actual,
                                       power_cycle=query["edit"].get("power_cycle", False))
-                        elif action == "restart":
-                            reboot = profile.folder / "profile.json"
-                            config = json.loads(reboot.read_text(encoding="utf-8")).get("soft_reset")
-                            if not config or profile.key != "jdy31":
-                                raise RuntimeError("No supported software-restart command")
-                            vr = self._query(profile, profile.by_id("version"))
-                            vv = response_value(vr, "+VERSION=")
-                            if not vv or not vv.startswith(config["require_version_prefix"]):
-                                raise RuntimeError("Firmware mismatch: restart not sent")
+                        elif action in ("restart", "factory"):
+                            field = "soft_reset" if action == "restart" else "factory_reset"
+                            config = getattr(profile, field)
+                            if config is None or not config.get("verified_on_hardware"):
+                                raise RuntimeError(f"{field} unavailable on this module profile")
+                            signature = config.get("require_version_prefix")
+                            if signature:
+                                version = profile.by_id("version")
+                                reply = self._query(profile, version)
+                                actual = response_value(reply, version.get("prefix", ""))
+                                if not actual or not actual.startswith(signature):
+                                    raise RuntimeError("Firmware mismatch: device control NOT SENT")
+                            if action == "factory":
+                                _, complete = self._snapshot(profile)
+                                if not complete:
+                                    raise RuntimeError("Pre-reset snapshot incomplete: command NOT SENT")
                             ack = self._exchange(config["command"], profile)
-                            self.emit("restart", status=("+OK" if b"+OK" in ack.upper() else status_of(ack)))
-                        elif action == "factory":
-                            reset = profile.factory_reset
-                            if reset is None or not (reset.get("verified_on_hardware") or (profile.key == "jdy31" and reset.get("experimental"))):
-                                raise RuntimeError("Factory reset command is not verified for this module")
-                            if reset.get("experimental"):
-                                vr = self._query(profile, profile.by_id("version"))
-                                vv = response_value(vr, "+VERSION=")
-                                if not vv or not vv.startswith(reset.get("require_version_prefix", "UNKNOWN")):
-                                    raise RuntimeError("Firmware mismatch: factory command not sent")
-                            _, snapshot_complete = self._snapshot(profile)
-                            if not snapshot_complete:
-                                raise RuntimeError("Pre-reset snapshot incomplete; factory reset NOT SENT")
-                            ack = self._exchange(reset["command"], profile)
-                            self.emit("factory", status=("+OK" if b"+OK" in ack.upper() else status_of(ack)))
+                            ack_state = "+OK" if b"+OK" in ack.upper() else status_of(ack)
+                            self.emit(action, status=ack_state,
+                                      expected_baud=config.get("expected_baud_after_reset"))
                         else:
                             raise RuntimeError(f"Unknown worker action: {action}")
                 except Exception as exc:
@@ -339,20 +334,18 @@ class ModuleTab:
         info = ttk.Label(right, text="Changes are never sent automatically. Each change is confirmed,\npre-read, acknowledged and read back; UART baud changes need a power cycle.",
                          wraplength=610, justify="left")
         info.grid(row=1, column=0, sticky="ew", pady=(10, 8))
-        reset = ttk.LabelFrame(right, text="Factory defaults", padding=10)
-        reset.grid(row=2, column=0, sticky="ew")
-        if self.profile.factory_reset is None:
-            self.factory_button = ttk.Button(reset, text="Factory RESET: not documented")
-            self.factory_button.state(["disabled"])
-            ttk.Label(reset, text="No documented factory-reset command for this profile.\nNo guessed AT+DEFAULT / AT+RESET will be transmitted.",
-                      justify="left", wraplength=580).pack(anchor="w", pady=(6, 0))
-        else:
-            self.factory_button = ttk.Button(reset, text="Restore FACTORY defaults...", command=self.app.factory_reset)
-            ttk.Label(reset, text="Requires a verified command, double confirmation and a pre-reset snapshot.",
-                      wraplength=570).pack(anchor="w", pady=(6, 0))
-        self.factory_button.pack(anchor="w")
-        if self.profile.key == "jdy31":
-            ttk.Button(reset, text="Restart module (AT+RESET)", command=self.app.soft_restart).pack(anchor="w", pady=(8, 0))
+        controls = declared_device_actions(self.profile)
+        if controls:
+            device = ttk.LabelFrame(right, text="Device control", padding=10)
+            device.grid(row=2, column=0, sticky="ew")
+            if "soft_reset" in controls:
+                ttk.Button(device, text="Restart module",
+                           command=self.app.soft_restart).pack(anchor="w", pady=3)
+            if "factory_reset" in controls:
+                ttk.Button(device, text="Restore factory defaults...",
+                           command=self.app.factory_reset).pack(anchor="w", pady=3)
+                ttk.Label(device, text="Current configuration is saved before restoring. Confirm twice.",
+                          wraplength=570).pack(anchor="w", pady=3)
 
     def read_selected(self):
         selection = self.tree.selection()
@@ -525,8 +518,11 @@ class ATStudio:
         if action not in ("connect", "disconnect") and self.connected_profile != profile.key:
             messagebox.showwarning("Wrong module tab", "Disconnect and reconnect to select a different AT profile")
             return
-        if action == "write" and not self.writes_enabled.get():
+        if action in ("write", "factory") and not self.writes_enabled.get():
             messagebox.showwarning("Writes locked", "Enable AT WRITES first")
+            return
+        if action not in ("connect", "disconnect") and self.selected_tab().profile.key != profile.key:
+            messagebox.showwarning("Wrong active tab", "Select the connected module tab before sending commands")
             return
         self.busy = True
         self.conn_status.set("Working...")
@@ -534,9 +530,11 @@ class ATStudio:
 
     def soft_restart(self):
         tab = self.selected_tab()
-        if tab is None or tab.profile.key != "jdy31":
+        if tab is None or tab.profile.soft_reset is None:
             return
-        if not messagebox.askyesno("Restart Bluetooth module", "Send AT+RESET? Bluetooth connections may disconnect; stored settings should remain unchanged."):
+        control = tab.profile.soft_reset
+        if not messagebox.askyesno("Restart Bluetooth module",
+                f"Send {control['command']} to {tab.profile.title}? Active Bluetooth connections may disconnect."):
             return
         self.action("restart", tab.profile)
 
