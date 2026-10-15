@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "id": "jdy31",
-  "title": "JDY-31 (Bluetooth 3.0 SPP)",
+  "title": "JDY-31A V2.241 (SPP + BLE)",
   "baud": 9600,
   "ending": "CRLF",
   "timeout_ms": 800,
   "verified_reads": false,
-  "notes": "REFERENCE / NOT YET BENCH-VERIFIED. JDY-31 reads use AT+TOKEN (no '?') and normally return +TOKEN=value WITHOUT trailing OK. Only read-only queries are enabled. On the pictured backplane: VCC 3.6-6 V, UART logic 3.3 V. Factory reset and writes are disabled. PIN can appear in the private session log and snapshots.",
-  "reference": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
+  "notes": "PHYSICAL: JDY-31A-V2.241, Classic 3.0 + BLE; 9600 8N1 CRLF confirmed via UART. First five rows are the measured baseline; +NAME=? is an UNKNOWN name, not proof of a valid configured name. Rows tagged [PROBE] are UNVERIFIED read-only candidates from JDY-31 V1.x / related JDY-33 manuals, excluded from Read core, snapshots and inspections; test ONE with Read selected. No writes, SLEEP, RESET, DISC or DEFAULT. Breakout VCC 3.6-6V, UART 3.3V.",
+  "reference": "https://fccid.io/2AXM8-JDY-33/User-Manual/15-JDY-33-UserMan-US-r2-4936883.pdf",
   "queries": [
     {
       "id": "version",
@@ -25,7 +25,10 @@
       "id": "name",
       "label": "Bluetooth name",
       "command": "AT+NAME",
-      "prefix": "+NAME="
+      "prefix": "+NAME=",
+      "unknown_values": [
+        "?"
+      ]
     },
     {
       "id": "baud",
@@ -38,6 +41,83 @@
       "label": "Pairing PIN (private)",
       "command": "AT+PIN",
       "prefix": "+PIN="
+    },
+    {
+      "id": "at_ping",
+      "label": "[PROBE] AT ping",
+      "command": "AT",
+      "prefix": "",
+      "probe_only": true
+    },
+    {
+      "id": "enlog",
+      "label": "[PROBE] UART event output",
+      "command": "AT+ENLOG",
+      "prefix": "+ENLOG=",
+      "probe_only": true
+    },
+    {
+      "id": "stat",
+      "label": "[PROBE] Connection state",
+      "command": "AT+STAT",
+      "prefix": "+STAT=",
+      "probe_only": true
+    },
+    {
+      "id": "ble_name",
+      "label": "[PROBE] BLE advertised name",
+      "command": "AT+NAMB",
+      "prefix": "+NAME=",
+      "probe_only": true
+    },
+    {
+      "id": "type",
+      "label": "[PROBE] SPP password mode",
+      "command": "AT+TYPE",
+      "prefix": "+TYPE=",
+      "probe_only": true
+    },
+    {
+      "id": "uuid_length",
+      "label": "[PROBE] BLE UUID width",
+      "command": "AT+UUIDLEN",
+      "prefix": "+UUIDLEN=",
+      "probe_only": true
+    },
+    {
+      "id": "service_uuid",
+      "label": "[PROBE] BLE service UUID",
+      "command": "AT+SVRUUID",
+      "prefix": "+SVRUUID=",
+      "probe_only": true
+    },
+    {
+      "id": "char_uuid",
+      "label": "[PROBE] BLE characteristic UUID",
+      "command": "AT+CHRUUID",
+      "prefix": "",
+      "probe_only": true
+    },
+    {
+      "id": "rx_uuid",
+      "label": "[PROBE] BLE RX UUID",
+      "command": "AT+CRXUUID",
+      "prefix": "+CRXUUID=",
+      "probe_only": true
+    },
+    {
+      "id": "uart_mode",
+      "label": "[PROBE] UART parity",
+      "command": "AT+UARTMODE",
+      "prefix": "+UARTMODE=",
+      "probe_only": true
+    },
+    {
+      "id": "stat_pin",
+      "label": "[PROBE] STAT pin behavior",
+      "command": "AT+STTS",
+      "prefix": "+STTS=",
+      "probe_only": true
     }
   ],
   "factory_reset": null
