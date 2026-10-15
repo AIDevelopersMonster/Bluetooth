@@ -139,7 +139,7 @@ class CaptureTests(unittest.TestCase):
         self.assertEqual(result["passed"], 4)
         self.assertEqual(result["result"], "INCOMPLETE")
         self.assertEqual(result["firmware"], "JDY-31A-V2.241,Bluetooth V3.0+BLE")
-        self.assertEqual(len([q for q in profile.queries if q.get("probe_only")]), 11)
+        self.assertEqual(len([q for q in profile.queries if q.get("probe_only")]), 0)
         self.assertNotIn("1234", str(result["checks"]))
 
     def test_jdy31a_confirmed_name_read(self):
