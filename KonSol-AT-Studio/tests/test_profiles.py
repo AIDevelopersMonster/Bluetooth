@@ -31,7 +31,8 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(p.ending, b"\r\n")
         self.assertTrue(p.verified_reads)
         self.assertEqual(len(p.setters), 3)
-        self.assertIsNone(p.factory_reset)
+        self.assertEqual(p.factory_reset["command"], "AT+DEFAULT")
+        self.assertEqual(p.soft_reset["command"], "AT+RESET")
 
     def test_queries_match_physical_at_read_set(self):
         self.assertEqual([x["command"] for x in self.dual.queries], [
@@ -62,10 +63,11 @@ class ProfileTests(unittest.TestCase):
         for p in discover_profiles(BASE / "modules")[0]:
             if p.key == "jdy31":
                 self.assertEqual(p.factory_reset["command"], "AT+DEFAULT")
-                self.assertTrue(p.factory_reset["experimental"])
-                self.assertFalse(p.factory_reset["verified_on_hardware"])
+                self.assertTrue(p.factory_reset["verified_on_hardware"])
+                self.assertEqual(p.soft_reset["command"], "AT+RESET")
             else:
                 self.assertIsNone(p.factory_reset)
+                self.assertIsNone(p.soft_reset)
 
     def test_new_module_folder_autoloaded(self):
         with tempfile.TemporaryDirectory() as d:
