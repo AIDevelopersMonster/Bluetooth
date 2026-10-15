@@ -208,6 +208,42 @@ class UartTests(unittest.TestCase):
             self.assertFalse((Path(temp) / "test-inspections.sqlite3").exists())
         self.assertTrue(any(kind == "error" for kind, data in seen))
 
+    def test_jdy_snapshot_saved_in_sqlite_with_redacted_pin(self):
+        fake = FakeSerial([
+            b"+VERSION=JDY-31A-V2.241,Bluetooth V3.0+BLE\r\n",
+            b"+LADDR=02A1B2C3D4E5\r\n",
+            b"+NAME=JDY-33-SPP\r\n",
+            b"+BAUD=4\r\n",
+            b"+PIN=1234\r\n",
+        ])
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            inbox, outbox = queue.Queue(), queue.Queue()
+            db = root / "db.sqlite3"
+            worker = SerialWorker(inbox, outbox, root, db_path=db)
+            profile = parse_profile(ROOT / "modules" / "jdy31")
+            worker.port, worker.connected_profile = fake, profile.key
+            worker.start()
+            inbox.put(("snapshot", profile, {}))
+            seen = []
+            while True:
+                kind, data = outbox.get(timeout=6)
+                seen.append((kind, data))
+                if kind == "done":
+                    break
+            inbox.put(("stop", None, {}))
+            worker.join(timeout=2)
+            saved = [d for k, d in seen if k == "snapshot"][0]
+            content = Path(saved["path"]).read_text(encoding="utf-8")
+            record = query_inspections(db_path=db)
+            self.assertEqual(len(record), 1)
+            self.assertEqual(record[0]["test_code"], "AT_CONFIG_SNAPSHOT_V1")
+            self.assertEqual(record[0]["result"], "PASS")
+            self.assertEqual(saved["record"]["id"], record[0]["id"])
+            self.assertNotIn("1234", content)
+            self.assertNotIn("1234", str(get_inspection(record[0]["id"], db)))
+            self.assertEqual(fake.writes[-1], b"AT+PIN\r\n")
+
     def test_no_factory_command_on_real_profile(self):
         fake = FakeSerial([])
         with tempfile.TemporaryDirectory() as temp:
