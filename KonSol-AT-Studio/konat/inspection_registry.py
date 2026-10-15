@@ -9,6 +9,7 @@ that an address is unique, immutable or burned into silicon.
 from __future__ import annotations
 
 import csv
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 import html
 import json
@@ -77,10 +78,26 @@ def _safe_payload(value: Any, key: str = "") -> Any:
     raise TypeError(f"Not JSON serializable: {type(value).__name__}")
 
 
+
+@contextmanager
+def _connection(path: Path, **kwargs):
+    """Commit or roll back and ALWAYS close SQLite handles (important on Windows).
+
+    'with _connection(...)' handles transactions but does not close the
+    connection; leaked handles prevent deleting TemporaryDirectory on Windows.
+    """
+    con = sqlite3.connect(path, **kwargs)
+    try:
+        with con:
+            yield con
+    finally:
+        con.close()
+
+
 def ensure_db(path: Path = DEFAULT_DB) -> Path:
     path = Path(path).expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(path) as con:
+    with _connection(path) as con:
         con.execute("PRAGMA foreign_keys = ON")
         current_version = con.execute("PRAGMA user_version").fetchone()[0]
         if current_version > SCHEMA_VERSION:
@@ -131,7 +148,7 @@ def db_status(path: Path = DEFAULT_DB) -> dict:
                "inspections": 0, "schema_version": None}
     if not path.is_file():
         return summary
-    with sqlite3.connect(path) as con:
+    with _connection(path) as con:
         summary["schema_version"] = con.execute("PRAGMA user_version").fetchone()[0]
         summary["modules"] = con.execute("SELECT COUNT(*) FROM modules").fetchone()[0]
         summary["inspections"] = con.execute("SELECT COUNT(*) FROM inspections").fetchone()[0]
@@ -167,7 +184,7 @@ def add_inspection(*, mac: str, profile: str, test_code: str, result: str,
     safe_json = json.dumps(_safe_payload(payload), ensure_ascii=False, sort_keys=True)
     db_path = ensure_db(db_path)
     now = utc_now()
-    with sqlite3.connect(db_path, timeout=10) as con:
+    with _connection(db_path, timeout=10) as con:
         con.execute("PRAGMA foreign_keys = ON")
         con.execute("BEGIN IMMEDIATE")
         row = con.execute("SELECT id, module_code FROM modules WHERE reported_mac=?", (mac,)).fetchone()
@@ -223,7 +240,7 @@ def query_inspections(*, mac: str | None = None, module: str | None = None,
         sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY i.id DESC LIMIT ?"
     params.append(max(1, min(int(limit), 1000000)))
-    with sqlite3.connect(path) as con:
+    with _connection(path) as con:
         con.row_factory = sqlite3.Row
         return [dict(row) for row in con.execute(sql, params)]
 
@@ -232,7 +249,7 @@ def get_inspection(inspection_id: int, db_path: Path = DEFAULT_DB) -> dict | Non
     path = Path(db_path).expanduser()
     if not path.is_file():
         return None
-    with sqlite3.connect(path) as con:
+    with _connection(path) as con:
         con.row_factory = sqlite3.Row
         row = con.execute("""SELECT i.*, m.module_code, m.reported_mac,
                                     m.identity_source, m.identity_assurance
@@ -250,7 +267,7 @@ def registry_summary(db_path: Path = DEFAULT_DB) -> dict:
     result = {"database": stats, "results": {}, "profiles": {}, "last_tested_on": None}
     if not stats["exists"]:
         return result
-    with sqlite3.connect(db_path) as con:
+    with _connection(db_path) as con:
         result["results"] = dict(con.execute("SELECT result, COUNT(*) FROM inspections GROUP BY result"))
         result["profiles"] = dict(con.execute("SELECT profile, COUNT(*) FROM inspections GROUP BY profile"))
         result["last_tested_on"] = con.execute("SELECT MAX(tested_on) FROM inspections").fetchone()[0]
@@ -304,7 +321,7 @@ def backup_database(output: Path, db_path: Path = DEFAULT_DB) -> Path:
     if output.resolve() == source.resolve():
         raise ValueError("Backup destination must differ from source")
     output.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(source) as src, sqlite3.connect(output) as dst:
+    with _connection(source) as src, _connection(output) as dst:
         src.backup(dst)
     return output
 
@@ -350,7 +367,7 @@ def import_history(document_path: Path, db_path: Path = DEFAULT_DB) -> dict:
         if not isinstance(row, dict) or not row.get("record_id"):
             raise ValueError("Missing record_id in historical inspection")
         if Path(db_path).is_file():
-            with sqlite3.connect(db_path) as con:
+            with _connection(db_path) as con:
                 existing = con.execute(
                     "SELECT 1 FROM inspections WHERE inspection_uid=?", (row["record_id"],)
                 ).fetchone()
