@@ -127,6 +127,27 @@ class UartTests(unittest.TestCase):
                             for kind, data in seen))
         self.assertFalse(any(kind == "error" for kind, data in seen))
 
+    def test_jdy31_write_blocked_on_wrong_firmware(self):
+        fake = FakeSerial([b"+VERSION=JDY-31-V1.0,Bluetooth V3.0\r\n"])
+        with tempfile.TemporaryDirectory() as temp:
+            commands, events = queue.Queue(), queue.Queue()
+            worker = SerialWorker(commands, events, Path(temp),
+                                  db_path=Path(temp) / "inspections.sqlite3")
+            profile = parse_profile(ROOT / "modules" / "jdy31")
+            worker.port, worker.connected_profile = fake, profile.key
+            worker.start()
+            commands.put(("write", profile, {"qid": "name", "value": "TEST31"}))
+            seen = []
+            while True:
+                kind, data = events.get(timeout=3)
+                seen.append((kind, data))
+                if kind == "done":
+                    break
+            commands.put(("stop", None, {}))
+            worker.join(timeout=2)
+        self.assertEqual(fake.writes, [b"AT+VERSION\r\n"])
+        self.assertTrue(any(kind == "error" for kind, data in seen))
+
     def test_failed_preread_blocks_write(self):
         fake = FakeSerial([b"+ADSS=02a1b2c3d4e5\r\nOK\r\n", b"ERR\r\n"])
         with tempfile.TemporaryDirectory() as temp:
