@@ -97,29 +97,10 @@ class SerialWorker(threading.Thread):
             "results": responses,
         }
         output.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        record = None
-        if outcome["mac"] is not None:
-            record = add_inspection(
-                mac=outcome["mac"], identity_source=profile.by_id("address")["command"],
-                profile=profile.key, test_code="AT_CONFIG_SNAPSHOT_V1",
-                result=outcome["result"], tested_on=observed_at[:10],
-                tested_at_utc=observed_at, evidence_source="live_uart",
-                evidence_ref=str(output), board=profile.title,
-                sw_version=outcome["firmware"],
-                port=self.port.port, baud=self.port.baudrate,
-                db_path=self.db_path,
-                payload={"scope": "Configuration observation only; not incoming acceptance",
-                         "snapshot_file": str(output),
-                         "passed": outcome["passed"], "total": outcome["total"],
-                         "checks": outcome["checks"]},
-            )
-        else:
-            self.emit("log", message="WARNING: snapshot saved only to JSON; module address missing, no SQLite record")
-        self.emit("snapshot", path=str(output), record=record, result=outcome["result"])
-        complete = outcome["result"] == "PASS" and outcome["mac"] is not None
-        if required_all and not complete:
-            self.emit("log", message="WARNING: snapshot is incomplete; review before changing settings")
-        return output, complete
+        # Configuration snapshots are operator's local scratch files only.
+        # The stock database is changed exclusively via Register checked module.
+        self.emit("snapshot", path=str(output), result=outcome["result"])
+        return output, outcome["result"] == "PASS"
 
     def _identity(self, profile):
         """Obtain module-reported MAC from the current live UART session."""
