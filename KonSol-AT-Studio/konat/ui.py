@@ -98,21 +98,9 @@ class SerialWorker(threading.Thread):
         }
         output.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         # Configuration snapshots are operator's local scratch files only.
-        # The stock database is changed exclusively via Register checked module.
+        # SQLite changes only after explicit Record.
         self.emit("snapshot", path=str(output), result=outcome["result"])
         return output, outcome["result"] == "PASS"
-
-    def _identity(self, profile):
-        """Obtain module-reported MAC from the current live UART session."""
-        query = profile.by_id("address")
-        reply = self._query(profile, query)
-        if status_of(reply) not in ("OK", "RESPONSE"):
-            raise RuntimeError("Cannot read the module address; no untraceable WRITE is allowed")
-        value = response_value(reply, query.get("prefix", ""))
-        try:
-            return normalize_mac(value), query["command"]
-        except ValueError as exc:
-            raise RuntimeError("AT address response is not a full six-byte identifier") from exc
 
     def _inspection(self, profile):
         start = timestamp_utc()
@@ -129,7 +117,7 @@ class SerialWorker(threading.Thread):
             mac=outcome["mac"], identity_source=profile.by_id("address")["command"],
             profile=profile.key, test_code="AT_READ_ALL_V1", result=outcome["result"],
             tested_on=start[:10], tested_at_utc=start, evidence_source="live_uart",
-            evidence_ref="KonSol AT Studio: Inspect & record",
+            evidence_ref="KonSol AT Studio: Record",
             board=profile.title, sw_version=outcome["firmware"],
             port=self.port.port, baud=self.port.baudrate,
             db_path=self.db_path,
@@ -139,21 +127,6 @@ class SerialWorker(threading.Thread):
         )
         self.emit("inspection", record=record, test_code="AT_READ_ALL_V1",
                   passed=outcome["passed"], total=outcome["total"])
-
-    def _write_record(self, profile, query, mac, address_command, old, new, actual, ack, status):
-        started = timestamp_utc()
-        recorded = add_inspection(
-            mac=mac, identity_source=address_command, profile=profile.key,
-            test_code="AT_WRITE_READBACK_V1", result="PASS" if status == "verified" else "FAIL",
-            tested_on=started[:10], tested_at_utc=started,
-            evidence_source="live_uart", evidence_ref="KonSol AT Studio: confirmed Apply and readback",
-            board=profile.title, port=self.port.port, baud=self.port.baudrate,
-            db_path=self.db_path, payload={"qid": query["id"], "command": query["edit"]["template"],
-                     "old": old, "new": new, "actual": actual, "ack": status_of(ack),
-                     "verified": status == "verified",
-                     "scope": "Single AT setting only; persistence after power-cycle not established"},
-        )
-        self.emit("inspection", record=recorded, test_code="AT_WRITE_READBACK_V1")
 
     def run(self):
         try:
@@ -207,7 +180,6 @@ class SerialWorker(threading.Thread):
                                 expected = query["edit"].get("require_version_prefix")
                                 if not expected or not version_value or not version_value.startswith(expected):
                                     raise RuntimeError("JDY-31A firmware mismatch; WRITE NOT SENT")
-                            mac, address_command = self._identity(profile)
                             # Never write without an initial response for this exact field.
                             previous = self._query(profile, query)
                             old = response_value(previous, query.get("prefix", ""))
@@ -231,9 +203,6 @@ class SerialWorker(threading.Thread):
                             actual_reply = self._query(profile, query)
                             actual = response_value(actual_reply, query.get("prefix", ""))
                             success = actual == value
-                            self._write_record(profile, query, mac, address_command,
-                                               old, value, actual, ack,
-                                               "verified" if success else "unverified")
                             self.emit("change", profile=profile.key, qid=query["id"],
                                       status="verified" if success else "unverified",
                                       old=old, new=value, actual=actual,
@@ -243,14 +212,16 @@ class SerialWorker(threading.Thread):
                             config = getattr(profile, field)
                             if config is None or not config.get("verified_on_hardware"):
                                 raise RuntimeError(f"{field} unavailable on this module profile")
-                            signature = config.get("require_version_prefix")
-                            if signature:
-                                version = profile.by_id("version")
-                                reply = self._query(profile, version)
-                                actual = response_value(reply, version.get("prefix", ""))
-                                if not actual or not actual.startswith(signature):
-                                    raise RuntimeError("Firmware mismatch: device control NOT SENT")
-                            # Factory recovery is independent of configuration health or database.
+                            if action == "restart":
+                                signature = config.get("require_version_prefix")
+                                if signature:
+                                    version = profile.by_id("version")
+                                    reply = self._query(profile, version)
+                                    actual = response_value(reply, version.get("prefix", ""))
+                                    if not actual or not actual.startswith(signature):
+                                        raise RuntimeError("Firmware mismatch: restart NOT SENT")
+                            # Factory restore sends the profile command without a
+                            # snapshot, configuration read, or registry side effect.
                             ack = self._exchange(config["command"], profile)
                             ack_state = "+OK" if b"+OK" in ack.upper() else status_of(ack)
                             self.emit(action, status=ack_state,
@@ -317,7 +288,7 @@ class ModuleTab:
         ttk.Button(controls, text="Read selected", command=self.read_selected).pack(side="left", padx=(0, 5))
         ttk.Button(controls, text="Read core", command=lambda:self.app.action("read_all", self.profile)).pack(side="left", padx=5)
         ttk.Button(controls, text="Save snapshot JSON", command=lambda:self.app.action("snapshot", self.profile)).pack(side="left", padx=5)
-        ttk.Button(controls, text="Inspect & record", command=lambda:self.app.action("inspect", self.profile)).pack(side="left", padx=5)
+        ttk.Button(controls, text="Record", command=lambda:self.app.action("inspect", self.profile)).pack(side="left", padx=5)
 
         right = ttk.Frame(f)
         right.grid(row=1, column=1, sticky="nsew", padx=(5, 10), pady=4)
@@ -535,7 +506,7 @@ class ATStudio:
         if action not in ("connect", "disconnect") and self.connected_profile != profile.key:
             messagebox.showwarning("Wrong module tab", "Disconnect and reconnect to select a different AT profile")
             return
-        if action in ("write", "factory") and not self.writes_enabled.get():
+        if action == "write" and not self.writes_enabled.get():
             messagebox.showwarning("Writes locked", "Enable AT WRITES first")
             return
         if action not in ("connect", "disconnect") and self.selected_tab().profile.key != profile.key:
@@ -559,17 +530,13 @@ class ATStudio:
         tab = self.selected_tab()
         if tab is None or tab.profile.factory_reset is None:
             return
-        reset = tab.profile.factory_reset
-        if not self.writes_enabled.get():
-            messagebox.showwarning("Writes locked", "Enable AT WRITES before factory reset")
-            return
-        if not messagebox.askyesno("DANGER: factory settings", "This changes the MODULE, not just the GUI.\n"
-                                   "Bluetooth pairing, UART speed and other configuration may be lost.\n"
-                                   "No database entry will be created. Proceed?", icon="warning"):
-            return
-        confirmation = simpledialog.askstring("Confirm factory reset", "Type RESET in capital letters to proceed:")
-        if confirmation != "RESET":
-            self.log_line("Factory reset cancelled")
+        command = tab.profile.factory_reset["command"]
+        if not messagebox.askyesno(
+                "Restore factory defaults",
+                f"Send {command} to {tab.profile.title}?\n\n"
+                "Stored module settings (name, PIN, UART baud) may be restored.\n"
+                "No snapshot or database record will be created.",
+                icon="warning"):
             return
         self.action("factory", tab.profile)
 
