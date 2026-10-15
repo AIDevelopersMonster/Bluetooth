@@ -7,6 +7,7 @@ import unittest
 from konat.profiles import parse_profile
 from konat.serial_io import AtTransport
 from konat.ui import SerialWorker
+from konat.inspection_registry import db_status, query_inspections, get_inspection
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -63,7 +64,7 @@ class UartTests(unittest.TestCase):
 
     def _worker(self, fake, root):
         commands, events = queue.Queue(), queue.Queue()
-        w = SerialWorker(commands, events, root)
+        w = SerialWorker(commands, events, root, db_path=root / "test-inspections.sqlite3")
         profile = parse_profile(ROOT / "modules" / "bt18_dual")
         w.port, w.connected_profile = fake, profile.key
         w.start()
@@ -71,6 +72,7 @@ class UartTests(unittest.TestCase):
 
     def test_write_reads_before_and_after(self):
         fake = FakeSerial([
+            b"+ADSS=02a1b2c3d4e5\r\nOK\r\n",
             b"+NAME=BT18-T\r\nOK\r\n",
             b"+NAME=KON-BT18\r\nOK\r\n",
             b"+NAME=KON-BT18\r\nOK\r\n",
@@ -86,11 +88,15 @@ class UartTests(unittest.TestCase):
                     break
             commands.put(("stop", None, {}))
             w.join(timeout=2)
-        self.assertEqual(fake.writes, [b"AT+NAME?\r\n", b"AT+NAME=KON-BT18\r\n", b"AT+NAME?\r\n"])
+            self.assertEqual(db_status(Path(temp) / "test-inspections.sqlite3")["inspections"], 1)
+            saved = query_inspections(db_path=Path(temp) / "test-inspections.sqlite3")[0]
+            self.assertEqual(saved["test_code"], "AT_WRITE_READBACK_V1")
+            self.assertEqual(saved["result"], "PASS")
+        self.assertEqual(fake.writes, [b"AT+ADSS?\r\n", b"AT+NAME?\r\n", b"AT+NAME=KON-BT18\r\n", b"AT+NAME?\r\n"])
         self.assertTrue(any(e == "change" and d["status"] == "verified" for e,d in seen))
 
     def test_failed_preread_blocks_write(self):
-        fake = FakeSerial([b"ERR\r\n"])
+        fake = FakeSerial([b"+ADSS=02a1b2c3d4e5\r\nOK\r\n", b"ERR\r\n"])
         with tempfile.TemporaryDirectory() as temp:
             w, commands, events, profile = self._worker(fake, Path(temp))
             commands.put(("write", profile, {"qid":"name","value":"KON-BT18"}))
@@ -102,8 +108,52 @@ class UartTests(unittest.TestCase):
                     break
             commands.put(("stop", None, {}))
             w.join(timeout=2)
-        self.assertEqual(fake.writes, [b"AT+NAME?\r\n"])
+        self.assertEqual(fake.writes, [b"AT+ADSS?\r\n", b"AT+NAME?\r\n"])
         self.assertTrue(any(e == "error" for e,d in seen))
+
+    def test_inspect_read_all_creates_fresh_scoped_record(self):
+        fake = FakeSerial([
+            b"OK\r\n", b"+VERS=V3.01\r\nOK\r\n",
+            b"+ADSS=02a1b2c3d4e5\r\nOK\r\n", b"+NAME=BT18-T\r\nOK\r\n",
+            b"+BAUD=1\r\nOK\r\n", b"+PIN=9876\r\nOK\r\n",
+            b"+UUID=ffe0,ffe1,ffe2\r\nOK\r\n", b"+FLOW=0\r\nOK\r\n",
+        ])
+        with tempfile.TemporaryDirectory() as temp:
+            w, commands, events, profile = self._worker(fake, Path(temp))
+            commands.put(("inspect", profile, {}))
+            seen = []
+            while True:
+                kind, info = events.get(timeout=3)
+                seen.append((kind, info))
+                if kind == "done":
+                    break
+            commands.put(("stop", None, {}))
+            w.join(timeout=2)
+            saved = query_inspections(db_path=Path(temp) / "test-inspections.sqlite3")
+            self.assertEqual(len(saved), 1)
+            self.assertEqual(saved[0]["result"], "PASS")
+            self.assertEqual(saved[0]["reported_mac"], "02A1B2C3D4E5")
+            details = get_inspection(saved[0]["id"], Path(temp) / "test-inspections.sqlite3")
+            self.assertEqual(details["payload"]["passed"], 8)
+            self.assertNotIn("9876", str(details["payload"]))
+        self.assertEqual(len(fake.writes), 8)
+        self.assertTrue(any(kind == "inspection" for kind, data in seen))
+
+    def test_inspect_without_mac_refuses_to_attribute_record(self):
+        fake = FakeSerial([b"OK\r\n", b"+VERS=V3.01\r\nOK\r\n"] + [b"" for _ in range(6)])
+        with tempfile.TemporaryDirectory() as temp:
+            w, commands, events, profile = self._worker(fake, Path(temp))
+            commands.put(("inspect", profile, {}))
+            seen = []
+            while True:
+                kind, info = events.get(timeout=7)
+                seen.append((kind, info))
+                if kind == "done":
+                    break
+            commands.put(("stop", None, {}))
+            w.join(timeout=2)
+            self.assertFalse((Path(temp) / "test-inspections.sqlite3").exists())
+        self.assertTrue(any(kind == "error" for kind, data in seen))
 
     def test_no_factory_command_on_real_profile(self):
         fake = FakeSerial([])

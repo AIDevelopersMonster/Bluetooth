@@ -8,10 +8,15 @@ import queue
 import threading
 import time
 import tkinter as tk
-from tkinter import messagebox, simpledialog, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from .profiles import discover_profiles, response_value, status_of, validate_setting
 from .serial_io import AtTransport
+from .inspection_capture import examine_queries, timestamp_utc
+from .inspection_registry import (DEFAULT_DB, add_inspection, normalize_mac,
+                                  query_inspections, get_inspection, db_status,
+                                  export_json, export_csv, generate_report,
+                                  backup_database)
 
 try:
     import serial
@@ -24,9 +29,10 @@ except ImportError:
 class SerialWorker(threading.Thread):
     """Single owner of the COM handle: serial operations never overlap."""
 
-    def __init__(self, inbox: queue.Queue, outbox: queue.Queue, root: Path):
+    def __init__(self, inbox: queue.Queue, outbox: queue.Queue, root: Path, db_path: Path = DEFAULT_DB):
         super().__init__(name="KonSol-AT-UART", daemon=True)
         self.inbox, self.outbox, self.root = inbox, outbox, root
+        self.db_path = db_path
         self.port = None
         self.connected_profile = None
         self.running = True
@@ -61,7 +67,7 @@ class SerialWorker(threading.Thread):
         base.mkdir(parents=True, exist_ok=True)
         output = base / f"{profile.key}_{stamp}.json"
         data = {
-            "tool": "KonSol AT Studio 0.1.0", "module_profile": profile.key,
+            "tool": "KonSol AT Studio 0.2.0", "module_profile": profile.key,
             "recorded_utc": datetime.now(timezone.utc).isoformat(),
             "port": self.port.port, "baud": self.port.baudrate,
             "warning": "Local-only data: may include Bluetooth address and pairing PIN",
@@ -73,6 +79,57 @@ class SerialWorker(threading.Thread):
         if required_all and not complete:
             self.emit("log", message="WARNING: snapshot has missing replies; review before changing anything")
         return output, complete
+
+    def _identity(self, profile):
+        """Obtain module-reported MAC from the current live UART session."""
+        query = profile.by_id("address")
+        reply = self._query(profile, query)
+        if status_of(reply) != "OK":
+            raise RuntimeError("Cannot read the module address; no untraceable WRITE is allowed")
+        value = response_value(reply, query.get("prefix", ""))
+        try:
+            return normalize_mac(value), query["command"]
+        except ValueError as exc:
+            raise RuntimeError("AT address response is not a full six-byte identifier") from exc
+
+    def _inspection(self, profile):
+        start = timestamp_utc()
+        replies = {}
+        for query in profile.queries:
+            replies[query["id"]] = self._query(profile, query)
+        outcome = examine_queries(profile, replies)
+        if outcome["mac"] is None:
+            raise RuntimeError("Inspection was NOT saved: no complete module-reported MAC. "
+                               "Review the AT address reply and retry.")
+        record = add_inspection(
+            mac=outcome["mac"], identity_source=profile.by_id("address")["command"],
+            profile=profile.key, test_code="AT_READ_ALL_V1", result=outcome["result"],
+            tested_on=start[:10], tested_at_utc=start, evidence_source="live_uart",
+            evidence_ref="KonSol AT Studio: Inspect & record",
+            board=profile.title, sw_version=outcome["firmware"],
+            port=self.port.port, baud=self.port.baudrate,
+            db_path=self.db_path,
+            payload={"passed": outcome["passed"], "total": outcome["total"],
+                     "checks": outcome["checks"],
+                     "scope": "UART AT queries only; not total incoming acceptance"},
+        )
+        self.emit("inspection", record=record, test_code="AT_READ_ALL_V1",
+                  passed=outcome["passed"], total=outcome["total"])
+
+    def _write_record(self, profile, query, mac, address_command, old, new, actual, ack, status):
+        started = timestamp_utc()
+        recorded = add_inspection(
+            mac=mac, identity_source=address_command, profile=profile.key,
+            test_code="AT_WRITE_READBACK_V1", result="PASS" if status == "verified" else "FAIL",
+            tested_on=started[:10], tested_at_utc=started,
+            evidence_source="live_uart", evidence_ref="KonSol AT Studio: confirmed Apply and readback",
+            board=profile.title, port=self.port.port, baud=self.port.baudrate,
+            db_path=self.db_path, payload={"qid": query["id"], "command": query["edit"]["template"],
+                     "old": old, "new": new, "actual": actual, "ack": status_of(ack),
+                     "verified": status == "verified",
+                     "scope": "Single AT setting only; persistence after power-cycle not established"},
+        )
+        self.emit("inspection", record=recorded, test_code="AT_WRITE_READBACK_V1")
 
     def run(self):
         try:
@@ -111,12 +168,15 @@ class SerialWorker(threading.Thread):
                                 self._query(profile, query)
                         elif action == "snapshot":
                             self._snapshot(profile)
+                        elif action == "inspect":
+                            self._inspection(profile)
                         elif action == "write":
                             query = profile.by_id(kw["qid"])
                             if not query.get("edit", {}).get("enabled", True):
                                 raise RuntimeError("This setter is disabled in the module profile")
                             value = kw["value"]
                             command = validate_setting(query, value)
+                            mac, address_command = self._identity(profile)
                             # Never write without an initial response for this exact field.
                             previous = self._query(profile, query)
                             old = response_value(previous, query.get("prefix", ""))
@@ -133,6 +193,9 @@ class SerialWorker(threading.Thread):
                             actual_reply = self._query(profile, query)
                             actual = response_value(actual_reply, query.get("prefix", ""))
                             success = actual == value
+                            self._write_record(profile, query, mac, address_command,
+                                               old, value, actual, ack,
+                                               "verified" if success else "unverified")
                             self.emit("change", profile=profile.key, qid=query["id"],
                                       status="verified" if success else "unverified",
                                       old=old, new=value, actual=actual,
@@ -208,6 +271,7 @@ class ModuleTab:
         ttk.Button(controls, text="Read selected", command=self.read_selected).pack(side="left", padx=(0, 5))
         ttk.Button(controls, text="Read ALL", command=lambda:self.app.action("read_all", self.profile)).pack(side="left", padx=5)
         ttk.Button(controls, text="Save snapshot JSON", command=lambda:self.app.action("snapshot", self.profile)).pack(side="left", padx=5)
+        ttk.Button(controls, text="Inspect & record", command=lambda:self.app.action("inspect", self.profile)).pack(side="left", padx=5)
 
         right = ttk.Frame(f)
         right.grid(row=1, column=1, sticky="nsew", padx=(5, 10), pady=4)
@@ -296,7 +360,7 @@ class ATStudio:
     def __init__(self, root_folder: Path):
         self.root_folder = root_folder
         self.root = tk.Tk()
-        self.root.title("KonSol AT Studio 0.1.0 | KON Tools")
+        self.root.title("KonSol AT Studio 0.2.0 | KonSol Tools")
         self.root.geometry("1160x780")
         self.root.minsize(970, 640)
         self.root.protocol("WM_DELETE_WINDOW", self.close)
@@ -346,6 +410,7 @@ class ATStudio:
         self.log.config(yscrollcommand=scroller.set)
         buttons = ttk.Frame(footer)
         buttons.grid(row=1, column=0, sticky="e", pady=4)
+        ttk.Button(buttons, text="Inspection registry", command=self.open_registry).pack(side="left", padx=5)
         ttk.Button(buttons, text="Reload module folders", command=self.reload_modules).pack(side="left", padx=5)
         ttk.Button(buttons, text="Clear log", command=self.clear_log).pack(side="left", padx=5)
 
@@ -478,6 +543,13 @@ class ATStudio:
                         messagebox.showwarning("Unverified write", "Module replied OK, but readback did not match. Read the settings before proceeding.")
                 elif kind == "snapshot":
                     self.log_line("Local snapshot: " + data["path"])
+                elif kind == "inspection":
+                    item = data["record"]
+                    self.log_line("REGISTERED: #{} {} {} MAC={} scope={} (acceptance NOT EVALUATED)".format(
+                        item["id"], item["module_code"], item["result"],
+                        item["reported_mac"], data["test_code"]))
+                    messagebox.showinfo("Inspection recorded", "Record #{} | {} | {}\nStored privately in: {}".format(
+                        item["id"], item["module_code"], item["result"], item["database"]))
                 elif kind == "factory":
                     messagebox.showwarning("Factory reset result", f"Reset command reply: {data['status']}.\n"
                                            "Check module settings and UART baud after restart; do not assume restore succeeded.")
@@ -496,6 +568,9 @@ class ATStudio:
         self.log.see("end")
         self.log.configure(state="disabled")
 
+    def open_registry(self):
+        RegistryWindow(self.root)
+
     def clear_log(self):
         self.log.configure(state="normal")
         self.log.delete("1.0", "end")
@@ -508,3 +583,102 @@ class ATStudio:
 
     def run(self):
         self.root.mainloop()
+
+
+class RegistryWindow:
+    """Local browsing/export of immutable, scope-limited inspection records."""
+
+    def __init__(self, parent):
+        self.window = tk.Toplevel(parent)
+        self.window.title("KonSol Tools | Private inspection registry")
+        self.window.geometry("1050x620")
+        self.window.transient(parent)
+        self.mac = tk.StringVar()
+        self.status = tk.StringVar(value=f"Database: {DEFAULT_DB}")
+        top = ttk.Frame(self.window, padding=10)
+        top.pack(fill="x")
+        ttk.Label(top, text="MAC (optional):").pack(side="left")
+        ent = ttk.Entry(top, textvariable=self.mac, width=24)
+        ent.pack(side="left", padx=6)
+        ent.bind("<Return>", lambda event: self.refresh())
+        ttk.Button(top, text="Search", command=self.refresh).pack(side="left", padx=4)
+        ttk.Button(top, text="All records", command=self.reset_filter).pack(side="left", padx=4)
+        ttk.Label(top, text="Each run is a new record; incoming acceptance is NOT EVALUATED.").pack(
+            side="right")
+
+        columns = ("id", "module_code", "mac", "date", "profile", "test", "result", "source")
+        outer = ttk.Frame(self.window, padding=(10, 2))
+        outer.pack(fill="both", expand=True)
+        outer.rowconfigure(0, weight=1)
+        outer.columnconfigure(0, weight=1)
+        self.tree = ttk.Treeview(outer, columns=columns, show="headings", height=14)
+        titles = ("#", "Module", "Reported MAC", "Test date", "Profile", "Test code", "Result", "Evidence")
+        widths = (45, 110, 125, 105, 115, 195, 105, 155)
+        for key, label, width in zip(columns, titles, widths):
+            self.tree.heading(key, text=label)
+            self.tree.column(key, width=width, minwidth=45)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        ttk.Scrollbar(outer, orient="vertical", command=self.tree.yview).grid(row=0, column=1, sticky="ns")
+        self.tree.bind("<Double-1>", lambda _: self.details())
+        bottom = ttk.Frame(self.window, padding=10)
+        bottom.pack(fill="x")
+        ttk.Button(bottom, text="Record details", command=self.details).pack(side="left", padx=3)
+        ttk.Button(bottom, text="Export JSON", command=lambda: self.export("json")).pack(side="left", padx=3)
+        ttk.Button(bottom, text="Export CSV", command=lambda: self.export("csv")).pack(side="left", padx=3)
+        ttk.Button(bottom, text="HTML report", command=lambda: self.export("html")).pack(side="left", padx=3)
+        ttk.Button(bottom, text="SQLite backup", command=lambda: self.export("sqlite3")).pack(side="left", padx=3)
+        ttk.Label(self.window, textvariable=self.status, padding=10, anchor="w").pack(fill="x")
+        self.refresh()
+
+    def reset_filter(self):
+        self.mac.set("")
+        self.refresh()
+
+    def refresh(self):
+        try:
+            rows = query_inspections(mac=self.mac.get().strip() or None, limit=10000)
+        except (ValueError, OSError) as exc:
+            messagebox.showwarning("Registry search", str(exc), parent=self.window)
+            return
+        for iid in self.tree.get_children():
+            self.tree.delete(iid)
+        for row in rows:
+            self.tree.insert("", "end", iid=str(row["id"]), values=(
+                row["id"], row["module_code"], row["reported_mac"],
+                row["tested_on"], row["profile"], row["test_code"],
+                row["result"], row["evidence_source"]))
+        stats = db_status()
+        self.status.set("{} | {} modules | {} inspections | shown {}".format(
+            stats["path"], stats["modules"], stats["inspections"], len(rows)))
+
+    def details(self):
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showinfo("Registry", "Select an inspection row", parent=self.window)
+            return
+        record = get_inspection(int(selected[0]))
+        if record is None:
+            return
+        win = tk.Toplevel(self.window)
+        win.title(f"Inspection #{record['id']} | {record['module_code']}")
+        win.geometry("830x550")
+        output = tk.Text(win, wrap="none", font=("Consolas", 10))
+        output.pack(fill="both", expand=True)
+        output.insert("1.0", json.dumps(record, indent=2, ensure_ascii=False))
+        output.configure(state="disabled")
+
+    def export(self, fmt):
+        ext = {"json": ".json", "csv": ".csv", "html": ".html", "sqlite3": ".sqlite3"}[fmt]
+        path = filedialog.asksaveasfilename(parent=self.window,
+                                             defaultextension=ext,
+                                             initialfile=f"konat-inspections{ext}")
+        if not path:
+            return
+        task = {"json": export_json, "csv": export_csv,
+                "html": generate_report, "sqlite3": backup_database}[fmt]
+        try:
+            saved = task(Path(path))
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Export failed", str(exc), parent=self.window)
+            return
+        messagebox.showinfo("Export complete", f"Saved locally: {saved}\n\nMay contain Bluetooth MACs; do not publish it.", parent=self.window)

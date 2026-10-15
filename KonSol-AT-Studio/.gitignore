@@ -5,3 +5,9 @@ __pycache__/
 snapshots/
 logs/
 *.zip
+
+# Never publish module inspection history or evidence
+*.sqlite3
+*.sqlite3-*
+inspection-exports/
+private-evidence/

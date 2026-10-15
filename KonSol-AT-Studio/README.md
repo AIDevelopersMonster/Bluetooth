@@ -1,4 +1,4 @@
-# KonSol AT Studio 0.1.0 | KON Tools
+# KonSol AT Studio 0.2.0 | KonSol Tools
 
 A small native **Windows GUI AT terminal/configurator**, based on the UART AT inquiry
 protocol already used by KON Bluetooth Lab's `DX-BT18/tools/bt18_probe.py`.
@@ -51,7 +51,8 @@ The verified 8/8 read-only AT commands are:
 `AT+PIN?`, `AT+UUID?`, `AT+FLOW?`.
 
 The original module manual documents setters for NAME, BAUD, PIN and FLOW.
-They are **not claimed physically verified by the lab**. For safety, FLOW write
+**NAME setter + immediate readback was physically verified** on 2026-10-12;
+BAUD, PIN and FLOW writes are **not claimed physically verified**. For safety, FLOW write
 is disabled in the initial profile because enabling hardware flow control without
 RTS/CTS can make UART communications unavailable. UUID and Bluetooth address
 writes are also excluded from this first version. No commands are sent on GUI
@@ -102,6 +103,25 @@ user confirmations (including typing `RESET`) and it stores a **complete** local
 pre-reset snapshot. If a read fails during this snapshot, the reset command is
 NOT SENT. After a reset, the user must verify settings and pairing manually.
 
+## Internal incoming inspection registry (v0.2.0)
+
+The program now has a private SQLite inspection registry, modeled on our GPS
+Lab database. The GUI offers **Inspect & record** for a fresh full AT
+query batch (read-only), plus an **Inspection registry** browser in the
+bottom panel. Successful configuration **Apply** operations generate
+separate, dated write/readback records when the current module MAC is known.
+Each record has its own test scope; overall incoming approval is *not*
+inferred from a single PASS. MAC/PIN are kept out of the public repository,
+and PIN values are redacted from saved inspection payloads.
+
+Primary file: `%USERPROFILE%\.konsol-tools\inspections.sqlite3`.
+
+See [INSPECTION_REGISTRY.md](INSPECTION_REGISTRY.md) for the GPS-inspired
+field mapping, CLI, backup, JSON/CSV/HTML export and historical evidence rules.
+
+Quick local commands: `registry.cmd status`, `registry.cmd list --limit 20`,
+`registry.cmd summary`. These work even when the GUI is not running.
+
 ## Lab evidence vs implementation
 
 **Software-only checks:**
@@ -110,9 +130,11 @@ NOT SENT. After a reset, the user must verify settings and pairing manually.
 py -m unittest discover -s .\tests -v
 ```
 
-**Hardware acceptance:** NOT YET PERFORMED for the new GUI. For this module,
-previous `bt18_probe.py` read-only test reported 8/8 physical replies with CH340
-at COM4/9600. The GUI still requires a fresh physical test.
+**Hardware acceptance:** operator GUI screenshots (2026-10-12) demonstrate 8/8
+AT reads and a Bluetooth NAME configuration write verified by immediate
+readback on a physical BT18-T. Other writes and persistence after power-cycle
+remain unverified. The new v0.2.0 **registry integration has software tests
+only** until the next bench run; it is not yet a physically accepted release.
 
 ## Privacy and security
 

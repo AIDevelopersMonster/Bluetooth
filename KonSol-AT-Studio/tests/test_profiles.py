@@ -18,9 +18,19 @@ class ProfileTests(unittest.TestCase):
     def test_discovery_requires_folder_and_json(self):
         found, errors = discover_profiles(BASE / "modules")
         self.assertFalse(errors)
-        self.assertEqual([x.key for x in found], ["bt18_dual", "bt18_le"])
+        self.assertEqual([x.key for x in found], ["bt18_dual", "bt18_le", "jdy31"])
         self.assertEqual(len(self.dual.queries), 8)
         self.assertEqual(len(self.dual.setters), 4)
+
+    def test_jdy31_profile_is_read_only(self):
+        p = parse_profile(BASE / "modules" / "jdy31")
+        self.assertEqual([q["command"] for q in p.queries],
+                         ["AT+VERSION", "AT+LADDR", "AT+NAME", "AT+BAUD", "AT+PIN"])
+        self.assertEqual(p.baud, 9600)
+        self.assertEqual(p.ending, b"\\r\\n")
+        self.assertFalse(p.verified_reads)
+        self.assertFalse(p.setters)
+        self.assertIsNone(p.factory_reset)
 
     def test_queries_match_physical_at_read_set(self):
         self.assertEqual([x["command"] for x in self.dual.queries], [
