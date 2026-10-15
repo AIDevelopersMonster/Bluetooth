@@ -60,7 +60,12 @@ class ProfileTests(unittest.TestCase):
 
     def test_factory_reset_is_blocked_for_both_real_profiles(self):
         for p in discover_profiles(BASE / "modules")[0]:
-            self.assertIsNone(p.factory_reset)
+            if p.key == "jdy31":
+                self.assertEqual(p.factory_reset["command"], "AT+DEFAULT")
+                self.assertTrue(p.factory_reset["experimental"])
+                self.assertFalse(p.factory_reset["verified_on_hardware"])
+            else:
+                self.assertIsNone(p.factory_reset)
 
     def test_new_module_folder_autoloaded(self):
         with tempfile.TemporaryDirectory() as d:
