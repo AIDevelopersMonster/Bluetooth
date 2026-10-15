@@ -6,7 +6,7 @@
   "ending": "CRLF",
   "timeout_ms": 800,
   "verified_reads": true,
-  "notes": "JDY-31A V2.241: 5 UART reads verified; NAME write/readback PASS; BAUD/PIN writes reported OK by operator. FACTORY restore AT+DEFAULT is DOCUMENTED for legacy JDY-31 but UNTESTED on this firmware. Before sending, Studio snapshots current values and checks firmware. After reset, reconnect at 9600 and read core. BLE GATT is separate.",
+  "notes": "JDY-31A V2.241: confirmed five AT UART reads, name write/readback, operator-tested BAUD and PIN changes. Physical factory reset AT+DEFAULT restored JDY-33-SPP / BAUD=4 (9600) / PIN=1234; earlier JDY-31 was a MANUALLY chosen name, never factory. AT+RESET is a documented software restart, not a factory restore; its V2.241 behavior requires independent verification. Both operations are version-gated and separately confirmed. BLE GATT not managed in this UART tab.",
   "reference": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
   "queries": [
     {
@@ -76,10 +76,21 @@
   "factory_reset": {
     "command": "AT+DEFAULT",
     "source_url": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
-    "verified_on_hardware": false,
-    "experimental": true,
+    "verified_on_hardware": true,
     "require_version_prefix": "JDY-31A-V2.241,",
     "expected_baud_after_reset": 9600,
-    "notes": "Factory reset documented for JDY-31 V1.x, not yet verified on JDY-31A V2.241. Restored defaults must be measured; original pre-test name JDY-31, baud 4 and PIN 1234 are observed baseline, NOT proof of factory state."
+    "expected_values": {
+      "name": "JDY-33-SPP",
+      "baud": "4",
+      "pin": "1234"
+    },
+    "evidence": "2026-10-15: operator issued AT+DEFAULT (+OK); after reset readback at 9600: +NAME=JDY-33-SPP, +BAUD=4, +PIN=1234. This is a result for this firmware/physical unit, not a model name change."
+  },
+  "soft_reset": {
+    "command": "AT+RESET",
+    "source_url": "https://adastra-soft.com/wp-content/uploads/2021/06/JDY-31_manual_2.pdf",
+    "verified_on_hardware": false,
+    "require_version_prefix": "JDY-31A-V2.241,",
+    "notes": "Documented software reboot; expected to preserve settings. +OK reply/retention on this exact firmware not yet independently confirmed."
   }
 }
